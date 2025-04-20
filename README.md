@@ -4,9 +4,7 @@ _[中文版本](README.zh-CN.md)_
 
 ## Introduction
 
-NIKKE Data Collector is a tool for automatically collecting and analyzing tournament data from NIKKE Arena. This
-application helps players track tournament brackets, player lineups, and match results to gain valuable insights into
-the competitive meta.
+NIKKE Data Collector is an automated data collection tool specifically designed for the Arena mode in NIKKE. It automatically records and analyzes match information from the Arena, helping players understand current competitive trends and changes. By collecting participants' lineup configurations, win/loss records, and battle data, players can gain valuable insights about the current game meta and powerful team compositions.
 
 ## Features
 
@@ -22,7 +20,7 @@ the competitive meta.
 - Python 3.11 or higher
 - PySide6 (Qt for Python)
 - OpenCV for image recognition
-- Administrator privileges (required for screen capture and mouse control)
+- Administrator privileges (required because NIKKE runs with admin rights; without equal privileges, the application cannot control the game window)
 
 ## Installation
 
@@ -43,6 +41,10 @@ the competitive meta.
     ```
     poetry run build-release
     ```
+
+## Running
+
+**Important Note**: This application must be run with administrator privileges, otherwise it cannot control the NIKKE game window. The program will check for admin rights at startup and will prompt and exit if they are not granted.
 
 ## Usage
 
