@@ -1,0 +1,11 @@
+.venv/
+pycache/
+__pycache__/
+testdata/
+.idea
+*~
+build/dist/
+build/*.xml
+build/*.txt
+data/
+logs/
