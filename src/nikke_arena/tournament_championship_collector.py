@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from dataclass_wizard import JSONWizard
+from dataclass_wizard import JSONWizard, JSONPyWizard
 
 from nikke_arena.mixin import JSONSerializableMixin
 from .battle_data_collector import BattleDataCollector
@@ -26,6 +26,8 @@ logger = get_logger(__name__)
 
 @dataclass
 class ChampionshipTournamentData(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
     """Data for a championship tournament stage"""
     stage: TournamentStage
     battles: List[BattleData] = field(default_factory=list)

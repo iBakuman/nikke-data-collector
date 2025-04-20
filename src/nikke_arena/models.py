@@ -66,7 +66,7 @@ class ChargeValues:
 
 
 @dataclass
-class Character:
+class Character(JSONWizard):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
 
@@ -76,11 +76,10 @@ class Character:
     weapon_type: Optional[WeaponType] = None
     charge_values: Optional[ChargeValues] = None
     image: Annotated[Optional[Image.Image], json_key("excluded", dump=False)] = None
-    confidence: float = 0.0
 
 
 @dataclass
-class Round:
+class Round(JSONWizard):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
 
@@ -144,7 +143,7 @@ class User(JSONWizard, JSONSerializableMixin):
         # Create directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
         # Save the user's profile image
-        file_path = os.path.join(output_dir, f"{prefix if prefix else ''}user_{self.user_id}_profile.png")
+        file_path = os.path.join(output_dir, f"{prefix + '_' if prefix else ''}user_{self.user_id}_profile.png")
         self.profile_image.save(file_path)
 
     def save_team_image(self, output_dir: str, prefix: str = None) -> None:
@@ -160,7 +159,7 @@ class User(JSONWizard, JSONSerializableMixin):
         # Create directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
         # Save the user's image
-        file_path = os.path.join(output_dir, f"{prefix+'_' if prefix else ''}{self.user_id}_team.png")
+        file_path = os.path.join(output_dir, f"{prefix + '_' if prefix else ''}{self.user_id}_team.png")
         self.team_image.save(file_path)
 
 

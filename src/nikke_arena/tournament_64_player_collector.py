@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from dataclass_wizard import JSONWizard
+from dataclass_wizard import JSONWizard, JSONPyWizard
 
 from .lineup_processor import LineupProcessor
 from .logging_config import get_logger
@@ -24,6 +24,8 @@ logger = get_logger(__name__)
 
 @dataclass
 class Tournament64PlayerData(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
     """Data for a 64-player tournament group"""
     group_id: int
     players: List[User] = field(default_factory=list)

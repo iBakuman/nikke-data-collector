@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from dataclass_wizard import JSONWizard
+from dataclass_wizard import JSONWizard, JSONPyWizard
 
 from .battle_data_collector import BattleDataCollector
 from .image_detector import ImageDetector
@@ -26,6 +26,8 @@ logger = get_logger(__name__)
 
 @dataclass
 class PromotionTournamentData(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
     """Data for a promotion tournament stage"""
     stage: TournamentStage
     group_id: int
