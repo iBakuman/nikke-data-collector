@@ -12,7 +12,6 @@ from typing import List, Optional
 from dataclass_wizard import JSONWizard
 
 from nikke_arena.mixin import JSONSerializableMixin
-
 from .battle_data_collector import BattleDataCollector
 from .image_detector import ImageDetector
 from .logging_config import get_logger
@@ -155,9 +154,9 @@ class ChampionshipTournamentCollector:
             tournament_data.save_as_json(os.path.join(stage_dir, "data.json"))
             logger.info(f"Saved stage data to {os.path.join(stage_dir, 'data.json')}")
             for (i, battle) in enumerate(battles):
-                image_dir = os.path.join(stage_dir, f"battle_{i}.png")
+                image_dir = os.path.join(stage_dir, f"battle_{i+1}.png")
                 battle.save_image(image_dir)
-                logger.info(f"Saved {battle.battle_id} battle image to {image_dir}")
+                logger.info(f"Saved battle_{i+1} image to {image_dir}")
 
             return tournament_data
         except Exception as e:
