@@ -81,10 +81,8 @@ class ImageDetector:
 
             if not location:
                 logger.info(f"Image {target.image_path} not found in region")
-        except Exception as e:
-            logger.error(f"Error detecting image: {e}")
+        except:
             return None
-
 
         return location
 
