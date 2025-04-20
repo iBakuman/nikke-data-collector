@@ -63,7 +63,7 @@ class AboutWindow(QDialog):
             A tool for collecting and analyzing data from NIKKE Arena tournaments.
         </p>
         <p style='text-align:center'>
-            <a href='https://github.com/username/nikke-data-collector' style='color:#20a8f0'>GitHub Repository</a>
+            <a href='https://github.com/iBakuman/nikke-data-collector' style='color:#20a8f0'>GitHub Repository</a>
         </p>
         <p style='text-align:center'>
             <b>Acknowledgements:</b><br>

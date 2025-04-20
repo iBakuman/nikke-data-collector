@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 import pyautogui
 from PIL import Image
@@ -33,7 +34,7 @@ class ImageDetector:
             if not os.path.exists(self.debug_path):
                 os.makedirs(self.debug_path, exist_ok=True)
 
-    def detect_image(self, target: DetectableImage) -> Box:
+    def detect_image(self, target: DetectableImage) -> Optional[Box]:
         """
         Detect if target image exists in the specified region
 
@@ -43,40 +44,47 @@ class ImageDetector:
         Returns:
             The location (left, top, width, height) if found, None otherwise
         """
-        # Get target image path
-        image_path = target.image_path
-        if not image_path or not os.path.exists(image_path):
-            raise FileNotFoundError(f"Image not found: {image_path}")
+        try:
+            # Get target image path
+            image_path = target.image_path
+            if not image_path or not os.path.exists(image_path):
+                return None
 
-        # Get window info for scaling
-        window_info = self.window_capturer.window_manager.get_window_info()
-        if not window_info:
-            raise Exception("Failed to get window info")
+            # Get window info for scaling
+            window_info = self.window_capturer.window_manager.get_window_info()
+            if not window_info:
+                logger.error("Failed to get window info")
+                return None
 
-        if target.region is None:
-            raise Exception("Region not specified for image detection")
+            if target.region is None:
+                logger.error("Region not specified for image detection")
+                return None
 
-        capture_result = self.window_capturer.capture_region(target.region)
-        if capture_result is None:
-            raise Exception("Failed to capture region")
+            capture_result = self.window_capturer.capture_region(target.region)
+            if capture_result is None:
+                logger.error("Failed to capture region")
+                return None
 
-        target_image = Image.open(image_path)
-        target_image = self._scale_image(target_image, window_info)
+            target_image = Image.open(image_path)
+            target_image = self._scale_image(target_image, window_info)
 
-        if self.debug_path:
-            capture_result.save(os.path.join(self.debug_path, f"region_{target.name}.png"))
-            target_image.save(os.path.join(self.debug_path, f"target_{target.name}.png"))
+            if self.debug_path:
+                capture_result.save(os.path.join(self.debug_path, f"region_{target.name}.png"))
+                target_image.save(os.path.join(self.debug_path, f"target_{target.name}.png"))
 
-        # Use PIL Image with pyautogui
-        location = pyautogui.locate(
-            target_image,
-            capture_result.to_pil(),
-            confidence=target.confidence
-        )
+            # Use PIL Image with pyautogui
+            location = pyautogui.locate(
+                target_image,
+                capture_result.to_pil(),
+                confidence=target.confidence
+            )
 
-        if not location:
-            raise Exception(f"Image {target.image_path} not found in region")
-        logger.info(f"Image {target.image_path} not found in region")
+            if not location:
+                logger.info(f"Image {target.image_path} not found in region")
+        except Exception as e:
+            logger.error(f"Error detecting image: {e}")
+            return None
+
 
         return location
 
