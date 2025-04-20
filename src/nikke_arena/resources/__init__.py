@@ -1,10 +1,6 @@
 import sys
 from pathlib import Path
 
-from nikke_arena.logging_config import get_logger
-
-logger = get_logger(__name__)
-
 __all__ = [
     'RESOURCE_DIR',
     'get_detectable_image_path',
@@ -21,27 +17,35 @@ def _get_base_dir() -> Path:
         Path to the base resources directory
     """
     if getattr(sys, 'frozen', False):
-        logger.info("App is packaged, detecting resources directory")
+        print("App is packaged, detecting resources directory")
         meipass_attr = getattr(sys, '_MEIPASS', None)
         if meipass_attr is not None:  # PyInstaller
-            logger.info(f"PyInstaller detected, using resources at: {Path(meipass_attr) / 'src' / 'nikke_arena' / 'resources'}")
+            print(f"PyInstaller detected, using resources at: {Path(meipass_attr) / 'src' / 'nikke_arena' / 'resources'}")
             return Path(meipass_attr) / "src" / "nikke_arena" / "resources"
         executable_path = Path(sys.argv[0])
-        logger.info(f"executable_path: {executable_path}")
+        print(f"executable_path: {executable_path}")
         if executable_path.exists():
-            logger.info(f"executable_path detected, using resources at: {executable_path.parent / 'resources'}")
+            print(f"executable_path detected, using resources at: {executable_path.parent / 'resources'}")
             return executable_path.parent / "resources"
+        print(f"sys.executable: {sys.executable}")
+        print(f"sys.argv: {sys.argv}")
+        try:
+            import __compiled__
+            print(f"__compiled__.original_argv0: {__compiled__.original_argv0}")
+            print(f"__compiled__.containing_dir: {__compiled__.containing_dir}")
+        except ImportError:
+            print("__compiled__ not found")
         raise Exception("Resources directory not found in packaged mode")
 
-    logger.info(f"using module's directory: {Path(__file__).parent}")
+    print(f"using module's directory: {Path(__file__).parent}")
     return Path(__file__).parent
 
 
 # Initialize resource directory with proper detection
 RESOURCE_DIR = _get_base_dir()
-logger.info(f"Resource directory: {RESOURCE_DIR}")
+print(f"Resource directory: {RESOURCE_DIR}")
 logo_path = RESOURCE_DIR / "logo.ico"
-logger.info(f"Logo path: {logo_path}")
+print(f"Logo path: {logo_path}")
 
 
 # Make resources directory structure visible

@@ -18,10 +18,10 @@ def get_project_root() -> Path:
 
     # Navigate up to find project root (where src is)
     project_dir = current_dir
-    while project_dir.name != "nikke-data-collector" and project_dir.parent != project_dir:
+    while project_dir.name != "nikke-data-collector" and project_dir != Path("/"):
         project_dir = project_dir.parent
 
-    if project_dir != "nikke-data-collector":
+    if project_dir.name != "nikke-data-collector":
         raise Exception("Could not find project root directory")
     return project_dir
 
@@ -67,7 +67,7 @@ def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, 
     cmd = [
         sys.executable, "-m", "nuitka",
         "--show-progress",
-        "--windows-icon-from-ico=src/nike_arena/resources/logo.ico",
+        f"--windows-icon-from-ico={os.path.join(src_dir, 'nikke_arena', 'resources', 'logo.ico')}",
         "--enable-plugin=pyside6",
         f"--output-dir={output_dir}",
         f"--output-filename={output_name}",
@@ -88,11 +88,12 @@ def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, 
         cmd.append("--standalone")
 
     # Include all files in the resources directory
-    cmd.append(f"--include-data-files={resources_dir / '*.*'}=resources/")
+    cmd.append(f"--include-data-dir={resources_dir}=resources")
+    # cmd.append(f"--include-data-files={resources_dir / '*.*'}=resources/")
     # Include files in the ref subdirectory - scan recursively with **/*
-    cmd.append(f"--include-data-files={resources_dir / 'ref' / '**/*.*'}=resources/ref/")
+    # cmd.append(f"--include-data-files={resources_dir / 'ref' / '**/*.*'}=resources/ref/")
     # Include files in the detectable subdirectory - scan recursively with **/*
-    cmd.append(f"--include-data-files={resources_dir / 'detectable' / '**/*.*'}=resources/detectable/")
+    # cmd.append(f"--include-data-files={resources_dir / 'detectable' / '**/*.*'}=resources/detectable/")
 
     # Add debug option if requested
     # if debug_mode:
@@ -139,7 +140,7 @@ def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, 
 def build_release():
     """Build release version"""
     success = build(
-        output_dir=os.path.join(get_project_root(), "build", "dist"),
+        output_dir=os.path.join(get_project_root()),
         output_name="nikke-data-collector",
         debug_mode=False,
         standalone=False,
@@ -150,7 +151,7 @@ def build_release():
 
 def build_debug():
     success = build(
-        output_dir=os.path.join(get_project_root(), "build", "dist"),
+        output_dir=os.path.join(get_project_root()),
         output_name="nikke-data-collector-debug",
         debug_mode=True,
         standalone=False,

@@ -4,8 +4,6 @@ __pycache__/
 testdata/
 .idea
 *~
-build/dist/
-build/*.xml
-build/*.txt
+dist/
 data/
 logs/
