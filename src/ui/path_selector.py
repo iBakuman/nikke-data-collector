@@ -2,8 +2,8 @@ import os
 import subprocess
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLineEdit,
-                               QPushButton, QWidget)
+from PySide6.QtWidgets import (QFileDialog, QHBoxLayout,
+                               QLineEdit, QPushButton, QVBoxLayout, QWidget)
 
 from nikke_arena.logging_config import get_logger
 
@@ -26,25 +26,30 @@ class PathSelector(QWidget):
 
         self._path = default_path
 
-        # Create layout
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # Create main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Path display field with system font
+        # Path display field with system font (first row)
         self.path_field = QLineEdit(self)
         self.path_field.setText(self._path)
         self.path_field.setReadOnly(True)  # Make read-only to prevent direct editing
-        layout.addWidget(self.path_field)
+        main_layout.addWidget(self.path_field)
 
-        # Browse button with system font
-        self.browse_btn = QPushButton("Browse...", self)
+        # Buttons layout (second row)
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addLayout(buttons_layout)
+
+        # Browse button
+        self.browse_btn = QPushButton("Browse", self)
         self.browse_btn.clicked.connect(self._on_browse)
-        layout.addWidget(self.browse_btn)
+        buttons_layout.addWidget(self.browse_btn)
 
         # Show in Explorer button
         self.explore_btn = QPushButton("Show in Explorer", self)
         self.explore_btn.clicked.connect(self._on_show_in_explorer)
-        layout.addWidget(self.explore_btn)
+        buttons_layout.addWidget(self.explore_btn)
 
         # Update initial button state
         self._update_button_state()
