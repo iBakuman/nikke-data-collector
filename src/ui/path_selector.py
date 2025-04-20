@@ -2,8 +2,8 @@ import os
 import subprocess
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (QFileDialog, QHBoxLayout,
-                               QLineEdit, QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLineEdit,
+                               QPushButton, QVBoxLayout, QWidget)
 
 from nikke_arena.logging_config import get_logger
 
@@ -24,7 +24,8 @@ class PathSelector(QWidget):
         if not default_path:
             default_path = os.path.expanduser("~")
 
-        self._path = default_path
+        # Normalize path to ensure correct path separators
+        self._path = os.path.normpath(default_path)
 
         # Create main layout
         main_layout = QVBoxLayout(self)
@@ -79,9 +80,12 @@ class PathSelector(QWidget):
             return
 
         try:
+            # Normalize path to ensure correct path separators for Windows
+            normalized_path = os.path.normpath(self._path)
+
             # Use subprocess to open the path in Explorer
-            subprocess.Popen(f'explorer "{self._path}"')
-            logger.info(f"Opened explorer for path: {self._path}")
+            subprocess.Popen(f'explorer "{normalized_path}"')
+            logger.info(f"Opened explorer for path: {normalized_path}")
         except Exception as e:
             logger.error(f"Error opening explorer: {e}")
 
@@ -91,8 +95,11 @@ class PathSelector(QWidget):
 
     def set_path(self, path):
         """Set the path programmatically."""
-        if os.path.isdir(path):
-            self._path = path
-            self.path_field.setText(path)
+        # Normalize path to ensure correct path separators
+        normalized_path = os.path.normpath(path)
+
+        if os.path.isdir(normalized_path):
+            self._path = normalized_path
+            self.path_field.setText(normalized_path)
             self._update_button_state()
-            self.pathChanged.emit(path)
+            self.pathChanged.emit(normalized_path)
