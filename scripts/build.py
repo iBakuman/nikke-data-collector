@@ -26,7 +26,8 @@ def get_project_root() -> Path:
     return project_dir
 
 
-def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, onefile=False) -> Optional[bool]:
+def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone=True, onefile=False) -> Optional[
+    bool]:
     """
     Build the NIKKE Arena application with Nuitka
 
@@ -39,11 +40,10 @@ def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, 
     """
     project_root = get_project_root()
     src_dir = project_root / "src"
-    dist_dir = project_root / "dist"
 
     # Determine output paths
     if not output_dir:
-        output_dir = project_root
+        output_dir = project_root / "dist"
     else:
         output_dir = Path(output_dir)
 
@@ -61,7 +61,7 @@ def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, 
     # Create a timestamp for the report file
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     report_filename = f"{output_name}_{timestamp}_build_report.xml"
-    report_path = dist_dir / report_filename
+    report_path = output_dir / report_filename
 
     # Build Nuitka command
     cmd = [
@@ -140,7 +140,6 @@ def build(output_dir=None, output_name=None, debug_mode=False, standalone=True, 
 def build_release():
     """Build release version"""
     success = build(
-        output_dir=os.path.join(get_project_root()),
         output_name="nikke-data-collector",
         debug_mode=False,
         standalone=False,
@@ -151,7 +150,6 @@ def build_release():
 
 def build_debug():
     success = build(
-        output_dir=os.path.join(get_project_root()),
         output_name="nikke-data-collector-debug",
         debug_mode=True,
         standalone=False,
