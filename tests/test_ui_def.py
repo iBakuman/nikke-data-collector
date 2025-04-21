@@ -1,7 +1,7 @@
 import logging
 
 from nikke_arena.mouse_control import MouseController
-from nikke_arena.ui_def import CHAMPIONSHIP_TOURNAMENT, GROUP_DETAIL, PROFILE, PROMOTION_TOURNAMENT, TEAM_INFO
+from nikke_arena.ui_def import BATTLE_RESULT, CHAMPIONSHIP_TOURNAMENT, GROUP_DETAIL, PROFILE, PROMOTION_TOURNAMENT, TEAM_INFO
 from nikke_arena.window_capturer import WindowCapturer
 from tests.utils import keyboard_terminable
 
@@ -49,3 +49,6 @@ def test_promotion_tournament(controller: MouseController):
         controller.move_to_position(PROMOTION_TOURNAMENT.get_player_avatar_position(i))
 
 
+def test_battle_result(capturer: WindowCapturer):
+    for i in range(1, 6):
+        capturer.capture_region(BATTLE_RESULT.get_region(i)).save(f"testdata/ui_def/battle_result/result_{i}.png")

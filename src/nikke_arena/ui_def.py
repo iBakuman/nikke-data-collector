@@ -252,10 +252,16 @@ class BattleResultElements:
     close: Position = Position(2208, 490)
     stage_32_16: Position = Position(2035, 1620)
     stage_16_8: Position = Position(1540, 1620)
-    _FIRST_RESULT_START_X = 1550
-    _FIRST_RESULT_START_Y = 1104
-    _RESULT_WIDTH = 138
-    _RESULT_HEIGHT = 85
+    _FIRST_RESULT_START_X = 1577
+    _FIRST_RESULT_START_Y = 1124
+    _RESULT_WIDTH = 94
+    _RESULT_HEIGHT = 48
+    _RESULT_GAP = 37
+    # _FIRST_RESULT_START_X = 1550
+    # _FIRST_RESULT_START_Y = 1104
+    # _RESULT_WIDTH = 138
+    # _RESULT_HEIGHT = 85
+
 
     _START_X = 1335
     _START_Y = 900
@@ -272,7 +278,7 @@ class BattleResultElements:
         return Region(start_x=self._START_X, start_y=self._START_Y, width=self._WIDTH, height=self._HEIGHT)
 
     def get_region(self, round_num: int) -> Region:
-        start_y = self._FIRST_RESULT_START_Y + (round_num - 1) * self._RESULT_HEIGHT
+        start_y = self._FIRST_RESULT_START_Y + (round_num - 1) * (self._RESULT_GAP + self._RESULT_HEIGHT)
         return Region(start_x=self._FIRST_RESULT_START_X, start_y=start_y, width=self._RESULT_WIDTH,
                       height=self._RESULT_HEIGHT)
 
