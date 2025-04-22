@@ -55,9 +55,6 @@ class ConfigManager:
             },
             "last_save_dir": "",
             "show_time_warning": True,
-            "window": {
-                "gap": 100
-            }
         }
 
     def load_config(self) -> Dict[str, Any]:

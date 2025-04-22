@@ -77,7 +77,6 @@ class MainWindow(QMainWindow):
         # Connect UI signals
         self.ui.startBtn.clicked.connect(self._on_confirm)
         self.path_selector.pathChanged.connect(self._on_path_changed)
-        self.ui.resizeWindowBtn.clicked.connect(self._on_resize_window)
 
         # Set up About menu
         self._setup_about_menu()
@@ -93,10 +92,6 @@ class MainWindow(QMainWindow):
         self.ui.delayMinSpin.setValue(min_delay)
         self.ui.delayMaxSpin.setValue(max_delay)
 
-        # Set gap value from config
-        gap = self.config_manager.get("window.gap", 100)
-        self.ui.gapSpin.setValue(gap)
-
         # Set last save directory if it exists
         last_save_dir = self.config_manager.get("last_save_dir", "")
         if last_save_dir and os.path.exists(last_save_dir):
@@ -106,19 +101,6 @@ class MainWindow(QMainWindow):
         """Save the selected path when it changes"""
         self.config_manager.set("last_save_dir", path)
         self.config_manager.save_config()
-
-    def _on_resize_window(self):
-        """Handle resize window button click"""
-        gap = self.ui.gapSpin.value()
-        try:
-            """Save the gap value when it changes"""
-            self.config_manager.set("window.gap", gap)
-            self.config_manager.save_config()
-            logger.info(f"Gap value changed to: {gap}")
-            self.window_manager.resize_to_standard(horizontal_gap=gap)
-        except Exception as e:
-            logger.error(f"Error resizing window: {e}")
-            self.show_message("Error", f"Error resizing window: {str(e)}", QMessageBox.Icon.Critical)
 
     @staticmethod
     def _copy_to_clipboard(text):

@@ -17,22 +17,22 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
 from PySide6.QtWidgets import (QApplication, QDoubleSpinBox, QGridLayout, QGroupBox,
-    QHBoxLayout, QLabel, QMainWindow, QMenu,
-    QMenuBar, QPushButton, QRadioButton, QSizePolicy,
-    QSpacerItem, QSpinBox, QVBoxLayout, QWidget)
+    QLabel, QMainWindow, QMenu, QMenuBar,
+    QPushButton, QRadioButton, QSizePolicy, QSpacerItem,
+    QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(320, 440)
+        MainWindow.resize(330, 440)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
         MainWindow.setSizePolicy(sizePolicy)
-        MainWindow.setMinimumSize(QSize(320, 440))
-        MainWindow.setMaximumSize(QSize(300, 400))
+        MainWindow.setMinimumSize(QSize(330, 440))
+        MainWindow.setMaximumSize(QSize(330, 440))
         self.actionAbout = QAction(MainWindow)
         self.actionAbout.setObjectName(u"actionAbout")
         self.centralwidget = QWidget(MainWindow)
@@ -40,37 +40,6 @@ class Ui_MainWindow(object):
         self.centralwidget.setEnabled(True)
         self.appLayout = QVBoxLayout(self.centralwidget)
         self.appLayout.setObjectName(u"appLayout")
-        self.horizontalLayout = QHBoxLayout()
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.label_3 = QLabel(self.centralwidget)
-        self.label_3.setObjectName(u"label_3")
-
-        self.horizontalLayout.addWidget(self.label_3)
-
-        self.gapSpin = QSpinBox(self.centralwidget)
-        self.gapSpin.setObjectName(u"gapSpin")
-        self.gapSpin.setMinimum(20)
-        self.gapSpin.setMaximum(1000)
-        self.gapSpin.setSingleStep(5)
-        self.gapSpin.setValue(100)
-
-        self.horizontalLayout.addWidget(self.gapSpin)
-
-        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.horizontalLayout.addItem(self.horizontalSpacer_3)
-
-        self.resizeWindowBtn = QPushButton(self.centralwidget)
-        self.resizeWindowBtn.setObjectName(u"resizeWindowBtn")
-
-        self.horizontalLayout.addWidget(self.resizeWindowBtn)
-
-        self.horizontalLayout.setStretch(0, 1)
-        self.horizontalLayout.setStretch(1, 2)
-        self.horizontalLayout.setStretch(3, 2)
-
-        self.appLayout.addLayout(self.horizontalLayout)
-
         self.groupBox_2 = QGroupBox(self.centralwidget)
         self.groupBox_2.setObjectName(u"groupBox_2")
         self.gridLayout = QGridLayout(self.groupBox_2)
@@ -162,7 +131,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 320, 33))
+        self.menubar.setGeometry(QRect(0, 0, 330, 33))
         self.helpMenu = QMenu(self.menubar)
         self.helpMenu.setObjectName(u"helpMenu")
         MainWindow.setMenuBar(self.menubar)
@@ -178,8 +147,6 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"NIKKE Data Collector", None))
         self.actionAbout.setText(QCoreApplication.translate("MainWindow", u"About", None))
-        self.label_3.setText(QCoreApplication.translate("MainWindow", u"Gap", None))
-        self.resizeWindowBtn.setText(QCoreApplication.translate("MainWindow", u"Resize NIKKE Window", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("MainWindow", u"Configure Delay", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"MIN", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"MAX", None))
