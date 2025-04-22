@@ -49,6 +49,7 @@ class Ui_MainWindow(object):
         self.delayMinSpin.setObjectName(u"delayMinSpin")
         self.delayMinSpin.setDecimals(1)
         self.delayMinSpin.setMinimum(1.500000000000000)
+        self.delayMinSpin.setSingleStep(0.200000000000000)
 
         self.gridLayout.addWidget(self.delayMinSpin, 0, 1, 1, 1)
 
@@ -67,6 +68,7 @@ class Ui_MainWindow(object):
         self.delayMaxSpin.setDecimals(1)
         self.delayMaxSpin.setMinimum(1.600000000000000)
         self.delayMaxSpin.setMaximum(10.000000000000000)
+        self.delayMaxSpin.setSingleStep(0.200000000000000)
 
         self.gridLayout.addWidget(self.delayMaxSpin, 1, 1, 1, 1)
 

@@ -1,5 +1,5 @@
 import time
-from typing import Optional, Tuple, Dict
+from typing import Dict, Optional, Tuple
 
 import psutil
 import win32api
@@ -8,10 +8,18 @@ import win32gui
 import win32process
 
 from .logging_config import get_logger
-from .ui_def import STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT
+from .ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
 from .window_info import WindowInfo
 
 logger = get_logger(__name__)
+
+
+class WindowNotFoundException(Exception):
+    """Exception raised when a window for a specific process is not found."""
+    def __init__(self, process_name):
+        self.process_name = process_name
+        message = f"Window not found for process: {process_name}"
+        super().__init__(message)
 
 
 class WindowManager:
@@ -35,7 +43,7 @@ class WindowManager:
         self.exact_match = exact_match
         hwnd = get_window_handle(self.process_name, self.exact_match)
         if not hwnd:
-            raise Exception(f"Window not found for process: {self.process_name}")
+            raise WindowNotFoundException(self.process_name)
 
         rect = get_window_rect(hwnd)
         if not rect:
