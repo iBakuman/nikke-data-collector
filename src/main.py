@@ -70,23 +70,6 @@ class MainWindow(QMainWindow):
         # Apply saved configuration
         self._apply_saved_config()
 
-        # Initialize core components
-        try:
-            self.window_manager = WindowManager(process_name="nikke.exe")
-            self.window_capturer = WindowCapturer(self.window_manager)
-            logger.info("Successfully initialized WindowManager and WindowCapturer")
-        except WindowNotFoundException as e:
-            logger.warning(f"Failed to initialize WindowManager: {e}")
-            # We'll create these on-demand when needed, so just initialize as None
-            self.window_manager = None
-            self.window_capturer = None
-            # Don't show message here as it would appear on startup, just log the warning
-            logger.warning("NIKKE is not running. Will attempt to connect when required.")
-        except Exception as e:
-            logger.error(f"Error initializing WindowManager: {e}")
-            self.window_manager = None
-            self.window_capturer = None
-
         # Connect UI signals
         self.ui.startBtn.clicked.connect(self._on_confirm)
         self.path_selector.pathChanged.connect(self._on_path_changed)
