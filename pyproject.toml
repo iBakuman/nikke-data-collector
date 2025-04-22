@@ -24,7 +24,7 @@ license = {text = "MIT"}
 name = "nikke-data-collector"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-version = "1.0.0"
+version = "1.0.1"
 
 [tool.poetry]
 authors = ["Your Name <your.email@example.com>"]
