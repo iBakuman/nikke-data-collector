@@ -47,12 +47,10 @@ def controller(manager) -> MouseController:
 @pytest.fixture
 def manager(request):
     marker = request.node.get_closest_marker("gap")
-    gap = 130
-    if marker and marker.args:
-        gap = marker.args[0]
+
 
     manager = WindowManager("nikke.exe", STANDARD_WINDOW_WIDTH, STANDARD_WINDOW_HEIGHT)
-    manager.resize_to_standard(horizontal_gap=gap)
+    # manager.resize_to_standard(horizontal_gap=gap)
     return manager
 
 

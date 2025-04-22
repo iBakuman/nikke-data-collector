@@ -61,14 +61,14 @@ class WindowManager:
     def get_rect(self) -> Tuple[int, int, int, int]:
         return self._window_info.rect
 
-    def resize_to_standard(self, horizontal_gap: int = 130) -> bool:
+    def resize_to_standard(self, ratio: float = 0.6, position: str = "top-left") -> bool:
         """
-        Resize the window's client area based on monitor dimensions and gap.
-        Calculates width as monitor width - 2*gap, and scales height accordingly.
-        Window stays on the same monitor it was originally on.
+        Resize the window's client area based on monitor dimensions and ratio.
+        Positions the window in the specified corner with equal margins.
 
         Args:
-            horizontal_gap (int): Gap to leave on left and right sides of screen (in pixels). Default 120.
+            ratio (float): Ratio of monitor width to use for window width (0.0-1.0). Default 0.6.
+            position (str): Position of window - 'top-left', 'top-right', 'bottom-left', 'bottom-right'. Default 'top-left'.
 
         Returns:
             bool: True if successful, False otherwise
@@ -102,26 +102,44 @@ class WindowManager:
             monitor_width = monitor_rect[2] - monitor_rect[0]
             monitor_height = monitor_rect[3] - monitor_rect[1]
 
-            target_size = self._calculate_target_size(
+            # Calculate target size based on ratio
+            target_size = self._calculate_target_size_by_ratio(
                 monitor_width,
                 monitor_height,
-                horizontal_gap
+                ratio
             )
 
             # Calculate window size including frame
             new_width = target_size['width'] + frame_width
             new_height = target_size['height'] + frame_height
 
-            # Position window on monitor
-            new_left = monitor_rect[0] + horizontal_gap
-            new_top = monitor_rect[1] + (monitor_height - new_height) // 2
+            # Calculate margin (equal for both horizontal and vertical)
+            margin = min((monitor_width - new_width) // 2, (monitor_height - new_height) // 2)
+
+            # Position window based on requested position
+            if position == "top-left":
+                new_left = monitor_rect[0] + margin
+                new_top = monitor_rect[1] + margin
+            elif position == "top-right":
+                new_left = monitor_rect[2] - new_width - margin
+                new_top = monitor_rect[1] + margin
+            elif position == "bottom-left":
+                new_left = monitor_rect[0] + margin
+                new_top = monitor_rect[3] - new_height - margin
+            elif position == "bottom-right":
+                new_left = monitor_rect[2] - new_width - margin
+                new_top = monitor_rect[3] - new_height - margin
+            else:
+                # Default to top-left if invalid position
+                new_left = monitor_rect[0] + margin
+                new_top = monitor_rect[1] + margin
 
             # Resize window
             win32gui.MoveWindow(hwnd, new_left, new_top, new_width, new_height, True)
 
-            # NOTE: Update window info with new rect
+            # Update window info with new rect
             self._window_info = WindowInfo(hwnd, get_window_rect(hwnd), self.standard_width, self.standard_height)
-            # Verify the new size and make final adjustments if needed
+
             return True
 
         except Exception as e:
@@ -143,32 +161,32 @@ class WindowManager:
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             time.sleep(0.6)  # Wait for restore
 
-    def _calculate_target_size(self, monitor_width: int, monitor_height: int, horizontal_gap: int) -> Dict[str, int]:
+    def _calculate_target_size_by_ratio(self, monitor_width: int, monitor_height: int, ratio: float) -> Dict[str, int]:
         """
-        Calculate target client size based on monitor dimensions and gap
+        Calculate target client size based on monitor dimensions and ratio
 
         Args:
             monitor_width: Width of the monitor
             monitor_height: Height of the monitor
-            horizontal_gap: Gap to leave on sides
+            ratio: Ratio of monitor width to use (0.0-1.0)
 
         Returns:
             Dictionary with target width and height
         """
-        # Calculate available width with gap
-        available_width = monitor_width - (2 * horizontal_gap)
-        aspect_ratio = self.standard_height / self.standard_width
+        # Ensure ratio is within valid range
+        ratio = max(0.1, min(1.0, ratio))
 
-        # Always use available width based on gap
-        target_width = available_width
+        # Calculate target width based on ratio
+        target_width = int(monitor_width * ratio)
+        aspect_ratio = self.standard_height / self.standard_width
         target_height = int(target_width * aspect_ratio)
 
-        # If height doesn't fit, scale both dimensions
-        if target_height > monitor_height:
-            target_height = monitor_height - 100  # Leave some margin
+        # If height is too large for screen, scale down
+        if target_height > monitor_height * 0.9:
+            target_height = int(monitor_height * 0.9)
             target_width = int(target_height / aspect_ratio)
 
-        logger.info(f"Using dimensions: {target_width}x{target_height} with gap {horizontal_gap}")
+        logger.info(f"Using dimensions: {target_width}x{target_height} with ratio {ratio}")
 
         return {'width': target_width, 'height': target_height}
 
