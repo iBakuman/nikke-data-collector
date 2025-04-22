@@ -51,7 +51,7 @@ class AboutWindow(QDialog):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
 
-        version_label = QLabel("Version 1.0.1", self)
+        version_label = QLabel("Version 1.0.2", self)
         version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(version_label)
 

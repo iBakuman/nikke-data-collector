@@ -32,7 +32,7 @@ from nikke_arena.tournament_championship_collector import \
     ChampionshipTournamentCollector
 from nikke_arena.tournament_promotion_collector import PromotionDataCollector
 from nikke_arena.window_capturer import WindowCapturer
-from nikke_arena.window_manager import WindowManager
+from nikke_arena.window_manager import WindowManager, WindowNotFoundException
 from theme import set_app_theme
 from ui.main import Ui_MainWindow
 from ui.path_selector import PathSelector
@@ -69,10 +69,6 @@ class MainWindow(QMainWindow):
 
         # Apply saved configuration
         self._apply_saved_config()
-
-        # Initialize core components
-        self.window_manager = WindowManager(process_name="nikke.exe")
-        self.window_capturer = WindowCapturer(self.window_manager)
 
         # Connect UI signals
         self.ui.startBtn.clicked.connect(self._on_confirm)
@@ -231,6 +227,18 @@ class MainWindow(QMainWindow):
             self.config_manager.set("delay.min", delay_min)
             self.config_manager.set("delay.max", delay_max)
             self.config_manager.save_config()
+
+            # Initialize window manager - this might throw an exception if NIKKE isn't running
+            try:
+                self.window_manager = WindowManager(process_name="nikke.exe")
+                self.window_capturer = WindowCapturer(self.window_manager)
+            except WindowNotFoundException:
+                self.show_message("Error", "NIKKE is not running. Please start the game first.",
+                                  QMessageBox.Icon.Critical)
+                return
+            except Exception as e:
+                # Re-raise if it's a different error
+                raise
 
             delay_manager = DelayManager(min_delay=delay_min, max_delay=delay_max)
             mouse_controller = MouseController(self.window_manager, delay_manager=delay_manager)

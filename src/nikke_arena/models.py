@@ -159,7 +159,7 @@ class User(JSONWizard, JSONSerializableMixin):
         # Create directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
         # Save the user's image
-        file_path = os.path.join(output_dir, f"{prefix + '_' if prefix else ''}{self.user_id}_team.png")
+        file_path = os.path.join(output_dir, f"{prefix + '_' if prefix else ''}user_{self.user_id}_team.png")
         self.team_image.save(file_path)
 
 

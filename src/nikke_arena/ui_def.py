@@ -126,7 +126,7 @@ class GroupDetailElements:
 class TeamInfoElements:
     # Base coordinates for round buttons
     _ROUND_1_X = 1427
-    _ROUND_1_Y = 988
+    _ROUND_1_Y = 984
     _WIDTH = 178
 
     # Fixed character positions in round detail view

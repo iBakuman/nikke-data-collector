@@ -59,6 +59,9 @@
          <property name="minimum">
           <double>1.500000000000000</double>
          </property>
+         <property name="singleStep">
+          <double>0.200000000000000</double>
+         </property>
         </widget>
        </item>
        <item row="0" column="0">
@@ -85,6 +88,9 @@
          </property>
          <property name="maximum">
           <double>10.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.200000000000000</double>
          </property>
         </widget>
        </item>
