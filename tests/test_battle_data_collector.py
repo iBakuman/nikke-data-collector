@@ -1,4 +1,4 @@
-from nikke_arena.battle_data_collector import BattleDataCollector
+from collector.battle_data_collector import BattleDataCollector
 from tests.utils import keyboard_terminable
 
 

@@ -1,5 +1,5 @@
-from nikke_arena.ui_def import Region
-from nikke_arena.window_capturer import WindowCapturer
+from collector.ui_def import Region
+from collector.window_capturer import WindowCapturer
 
 
 def test_window_capture(capturer: WindowCapturer):

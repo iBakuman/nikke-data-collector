@@ -4,8 +4,8 @@ from typing import List, Optional
 import pyperclip
 from PIL import Image
 
-from nikke_arena.mouse_control import MouseController
-from nikke_arena.ui_def import TEAM_INFO, PROFILE
+from collector.mouse_control import MouseController
+from collector.ui_def import TEAM_INFO, PROFILE
 
 
 def combine_images(horizontal_gap: int, boundary_gap: int, images: List[Image.Image]) -> Optional[Image.Image]:

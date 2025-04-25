@@ -53,7 +53,7 @@ def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone
     cmd = [
         sys.executable, "-m", "nuitka",
         "--show-progress",
-        f"--windows-icon-from-ico={os.path.join(src_dir, 'nikke_arena', 'resources', 'logo.ico')}",
+        f"--windows-icon-from-ico={os.path.join(src_dir, 'collector', 'resources', 'logo.ico')}",
         "--enable-plugin=pyside6",
         f"--output-dir={output_dir}",
         f"--output-filename={output_name}",
@@ -61,7 +61,7 @@ def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone
     ]
 
     # Critical: Include resources directory
-    resources_dir = src_dir / "nikke_arena" / "resources"
+    resources_dir = src_dir / "collector" / "resources"
 
     if not debug_mode:
         cmd.append("--windows-console-mode=disable")

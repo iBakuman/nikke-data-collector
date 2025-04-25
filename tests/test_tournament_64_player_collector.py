@@ -1,4 +1,4 @@
-from nikke_arena.tournament_64_player_collector import Tournament64PlayerCollector
+from collector.tournament_64_player_collector import Tournament64PlayerCollector
 
 
 def test_tournament_64_player_collector(player_collector: Tournament64PlayerCollector):

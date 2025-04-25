@@ -1,5 +1,5 @@
-from src.nikke_arena.models import TournamentStage
-from src.nikke_arena.tournament_promotion_collector import \
+from src.collector.models import TournamentStage
+from src.collector.tournament_promotion_collector import \
     PromotionDataCollector
 from tests.utils import keyboard_terminable
 

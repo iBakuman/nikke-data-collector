@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from PIL import Image
 
-from nikke_arena.profile_collector import ProfileCollector
+from collector.profile_collector import ProfileCollector
 from .character_matcher import CharacterMatcher
 from .logging_config import get_logger
 from .models import Character, Round, User

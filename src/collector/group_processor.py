@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from PIL.Image import Image
 
-from nikke_arena.window_capturer import WindowCapturer
+from collector.window_capturer import WindowCapturer
 from .lineup_processor import LineupProcessor
 from .logging_config import get_logger
 from .models import Group, User

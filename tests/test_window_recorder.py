@@ -1,6 +1,6 @@
 import os
 
-from nikke_arena.window_recorder import WindowRecorder
+from collector.window_recorder import WindowRecorder
 
 
 def test_window_recorder(manager):

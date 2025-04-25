@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import List
 
-from nikke_arena.character_matcher import CharacterMatcher
+from collector.character_matcher import CharacterMatcher
 
 logger = logging.getLogger(__name__)
 

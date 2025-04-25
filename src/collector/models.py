@@ -6,7 +6,7 @@ from typing import Annotated, Dict, List, Optional
 from dataclass_wizard import JSONPyWizard, JSONWizard, json_key
 from PIL import Image
 
-from nikke_arena.mixin import JSONSerializableMixin
+from collector.mixin import JSONSerializableMixin
 
 
 class ServerRegion(Enum):

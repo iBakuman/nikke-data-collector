@@ -1,7 +1,7 @@
 from typing import Dict
 
-from nikke_arena.character_extractor import CharacterExtractionParams, extract_characters
-from nikke_arena.ui_def import STANDARD_CHARACTER_HEIGHT, \
+from collector.character_extractor import CharacterExtractionParams, extract_characters
+from collector.ui_def import STANDARD_CHARACTER_HEIGHT, \
     STANDARD_CHARACTER_WIDTH
 
 character_maps: list[Dict[int, str]] = [

@@ -1,7 +1,7 @@
 import logging
 
-from nikke_arena.image_detector import ImageDetector
-from nikke_arena.ui_def import PROMOTION_TOURNAMENT
+from collector.image_detector import ImageDetector
+from collector.ui_def import PROMOTION_TOURNAMENT
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -1,5 +1,5 @@
-from nikke_arena.models import TournamentStage
-from nikke_arena.tournament_championship_collector import ChampionshipTournamentCollector
+from collector.models import TournamentStage
+from collector.tournament_championship_collector import ChampionshipTournamentCollector
 from tests.utils import keyboard_terminable
 
 

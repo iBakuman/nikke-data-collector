@@ -1,7 +1,7 @@
 import logging
 import os
 
-from nikke_arena.group_processor import GroupProcessor
+from collector.group_processor import GroupProcessor
 from tests.utils import keyboard_terminable
 
 logger = logging.getLogger(__name__)

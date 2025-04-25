@@ -1,6 +1,6 @@
 import pytest
 
-from nikke_arena.lineup_processor import LineupProcessor
+from collector.lineup_processor import LineupProcessor
 from tests.utils import keyboard_terminable
 
 

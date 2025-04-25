@@ -6,7 +6,7 @@ All positions are defined as classes with typed attributes to enable IDE autocom
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from nikke_arena.resources import get_detectable_image_path
+from collector.resources import get_detectable_image_path
 
 
 @dataclass

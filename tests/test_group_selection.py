@@ -7,8 +7,8 @@ using the mouse controller and UI constants.
 import logging
 from typing import List
 
-from nikke_arena.mouse_control import MouseController
-from nikke_arena.ui_def import GROUP_SELECTION
+from collector.mouse_control import MouseController
+from collector.ui_def import GROUP_SELECTION
 from tests.utils import keyboard_terminable
 
 # Configure logging

@@ -6,8 +6,8 @@ in the match details screen.
 """
 import logging
 
-from nikke_arena.mouse_control import MouseController
-from nikke_arena.ui_def import TEAM_INFO
+from collector.mouse_control import MouseController
+from collector.ui_def import TEAM_INFO
 
 # Configure logging
 logging.basicConfig(

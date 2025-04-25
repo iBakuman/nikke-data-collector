@@ -166,7 +166,7 @@ def migrate_database(db_path: Optional[Path] = None):
 
         # Find migrations in package resources
         try:
-            migrations_dir = importlib.resources.files('nikke_arena.db.data.migrations')
+            migrations_dir = importlib.resources.files('collector.db.data.migrations')
             migrations = load_migrations_from_directory(migrations_dir)
         except (ModuleNotFoundError, ImportError, ValueError) as e:
             logger.warning(f"Could not load migrations from package: {e}")
@@ -277,7 +277,7 @@ class DatabaseMigrationHelper:
         if directory_path is None:
             try:
                 # Try to get from package resources
-                directory_path = str(importlib.resources.files('nikke_arena.resources').joinpath('ref'))
+                directory_path = str(importlib.resources.files('collector.resources').joinpath('ref'))
             except (ModuleNotFoundError, ImportError, ValueError):
                 # Fallback to default location
                 directory_path = Path(__file__).parent.parent / 'resources' / 'ref'
@@ -347,7 +347,7 @@ class DatabaseMigrationHelper:
         if directory_path is None:
             try:
                 # Try to get from package resources
-                directory_path = str(importlib.resources.files('nikke_arena.resources').joinpath('ref'))
+                directory_path = str(importlib.resources.files('collector.resources').joinpath('ref'))
             except (ModuleNotFoundError, ImportError, ValueError):
                 # Fallback to default location
                 directory_path = Path(__file__).parent.parent / 'resources' / 'ref'

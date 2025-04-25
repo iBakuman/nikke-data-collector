@@ -1,5 +1,5 @@
-from nikke_arena.obs_controller import OBSController, OBSInfo
-from nikke_arena.window_manager import WindowManager
+from collector.obs_controller import OBSController, OBSInfo
+from collector.window_manager import WindowManager
 
 
 def test_obs_controller(manager: WindowManager):

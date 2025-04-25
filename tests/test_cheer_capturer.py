@@ -1,7 +1,7 @@
 import os
 
-from nikke_arena.cheer_processor import CheerCapturer
-from nikke_arena.utils import combine_images
+from collector.cheer_processor import CheerCapturer
+from collector.utils import combine_images
 from tests.utils import keyboard_terminable
 
 

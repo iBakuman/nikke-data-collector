@@ -19,23 +19,23 @@ from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QMainWindow,
 from about import AboutWindow
 from admin_helper import is_admin
 from config_manager import ConfigManager
-from nikke_arena import CharacterDAO
-from nikke_arena.character_matcher import CharacterMatcher
-from nikke_arena.delay_manager import DelayManager
-from nikke_arena.image_detector import ImageDetector
-from nikke_arena.lineup_processor import LineupProcessor
-from nikke_arena.logging_config import configure_logging
-from nikke_arena.models import TournamentStage
-from nikke_arena.mouse_control import MouseController
-from nikke_arena.profile_collector import ProfileCollector
-from nikke_arena.resources import logo_path
-from nikke_arena.tournament_64_player_collector import \
+from collector import CharacterDAO
+from collector.character_matcher import CharacterMatcher
+from collector.delay_manager import DelayManager
+from collector.image_detector import ImageDetector
+from collector.lineup_processor import LineupProcessor
+from collector.logging_config import configure_logging
+from collector.models import TournamentStage
+from collector.mouse_control import MouseController
+from collector.profile_collector import ProfileCollector
+from collector.resources import logo_path
+from collector.tournament_64_player_collector import \
     Tournament64PlayerCollector
-from nikke_arena.tournament_championship_collector import \
+from collector.tournament_championship_collector import \
     ChampionshipTournamentCollector
-from nikke_arena.tournament_promotion_collector import PromotionDataCollector
-from nikke_arena.window_capturer import WindowCapturer
-from nikke_arena.window_manager import WindowManager, WindowNotFoundException
+from collector.tournament_promotion_collector import PromotionDataCollector
+from collector.window_capturer import WindowCapturer
+from collector.window_manager import WindowManager, WindowNotFoundException
 from theme import set_app_theme
 from ui.main import Ui_MainWindow
 from ui.path_selector import PathSelector
@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
         try:
             from pathlib import Path
 
-            from nikke_arena.resources import RESOURCE_DIR
+            from collector.resources import RESOURCE_DIR
             icon_path = Path(RESOURCE_DIR) / "icon.png"
             if icon_path.exists():
                 self.setWindowIcon(QIcon(str(icon_path)))

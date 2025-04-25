@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from dataclass_wizard import JSONWizard, JSONPyWizard
 
-from nikke_arena.mixin import JSONSerializableMixin
+from collector.mixin import JSONSerializableMixin
 from .battle_data_collector import BattleDataCollector
 from .image_detector import ImageDetector
 from .logging_config import get_logger

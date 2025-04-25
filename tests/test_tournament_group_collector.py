@@ -6,7 +6,7 @@ multiple tournament groups in NIKKE.
 """
 import logging
 
-from nikke_arena.tournament_group_collector import GroupDataCollector
+from collector.tournament_group_collector import GroupDataCollector
 from tests.utils import keyboard_terminable
 
 # Configure logging

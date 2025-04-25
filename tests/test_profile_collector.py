@@ -1,4 +1,4 @@
-from nikke_arena.profile_collector import ProfileCollector
+from collector.profile_collector import ProfileCollector
 
 
 def test_profile_collector(profile_collector: ProfileCollector):

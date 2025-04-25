@@ -9,7 +9,7 @@ from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QLabel, QTextBrowser,
                                QVBoxLayout)
 
-from nikke_arena.resources import RESOURCE_DIR
+from collector.resources import RESOURCE_DIR
 
 
 class AboutWindow(QDialog):

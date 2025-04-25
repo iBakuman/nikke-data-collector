@@ -5,7 +5,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLineEdit,
                                QPushButton, QVBoxLayout, QWidget)
 
-from nikke_arena.logging_config import get_logger
+from collector.logging_config import get_logger
 
 logger = get_logger(__name__)
 

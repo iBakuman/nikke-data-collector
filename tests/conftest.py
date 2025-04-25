@@ -1,25 +1,25 @@
 import pytest
 
-from nikke_arena.battle_data_collector import BattleDataCollector
-from nikke_arena.character_matcher import CharacterMatcher
-from nikke_arena.db.character_dao import CharacterDAO
-from nikke_arena.delay_manager import DelayManager
-from nikke_arena.group_processor import GroupProcessor
-from nikke_arena.image_detector import ImageDetector
-from nikke_arena.lineup_processor import LineupProcessor
-from nikke_arena.mouse_control import MouseController
-from nikke_arena.profile_collector import ProfileCollector
-from nikke_arena.tournament_64_player_collector import Tournament64PlayerCollector
-from nikke_arena.tournament_championship_collector import \
+from collector.battle_data_collector import BattleDataCollector
+from collector.character_matcher import CharacterMatcher
+from collector.db.character_dao import CharacterDAO
+from collector.delay_manager import DelayManager
+from collector.group_processor import GroupProcessor
+from collector.image_detector import ImageDetector
+from collector.lineup_processor import LineupProcessor
+from collector.mouse_control import MouseController
+from collector.profile_collector import ProfileCollector
+from collector.tournament_64_player_collector import Tournament64PlayerCollector
+from collector.tournament_championship_collector import \
     ChampionshipTournamentCollector
-from nikke_arena.tournament_group_collector import GroupDataCollector
-from nikke_arena.tournament_promotion_collector import \
+from collector.tournament_group_collector import GroupDataCollector
+from collector.tournament_promotion_collector import \
     PromotionDataCollector
-from nikke_arena.tournament_recorder import TournamentRecorder
-from nikke_arena.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
-from nikke_arena.window_capturer import WindowCapturer
-from nikke_arena.window_manager import WindowManager
-from nikke_arena.window_recorder import Quality, WindowRecorder
+from collector.tournament_recorder import TournamentRecorder
+from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
+from collector.window_capturer import WindowCapturer
+from collector.window_manager import WindowManager
+from collector.window_recorder import Quality, WindowRecorder
 
 
 @pytest.fixture

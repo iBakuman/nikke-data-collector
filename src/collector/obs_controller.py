@@ -23,7 +23,7 @@ class OBSInfo:
 class OBSController:
     """Controls OBS Studio via Websocket API to record window content."""
 
-    def __init__(self, window_manager: WindowManager, scene_name: str = "nikke_arena", obs_info: OBSInfo = OBSInfo()):
+    def __init__(self, window_manager: WindowManager, scene_name: str = "collector", obs_info: OBSInfo = OBSInfo()):
         """
         Initialize OBSController with a WindowManager instance.
 

@@ -6,7 +6,7 @@ import mss.tools
 from PIL.Image import Image, frombytes
 from mss.screenshot import ScreenShot
 
-from nikke_arena.ui_def import Region
+from collector.ui_def import Region
 from .logging_config import get_logger
 from .window_manager import WindowManager
 

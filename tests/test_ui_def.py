@@ -1,8 +1,8 @@
 import logging
 
-from nikke_arena.mouse_control import MouseController
-from nikke_arena.ui_def import BATTLE_RESULT, CHAMPIONSHIP_TOURNAMENT, GROUP_DETAIL, PROFILE, PROMOTION_TOURNAMENT, TEAM_INFO
-from nikke_arena.window_capturer import WindowCapturer
+from collector.mouse_control import MouseController
+from collector.ui_def import BATTLE_RESULT, CHAMPIONSHIP_TOURNAMENT, GROUP_DETAIL, PROFILE, PROMOTION_TOURNAMENT, TEAM_INFO
+from collector.window_capturer import WindowCapturer
 from tests.utils import keyboard_terminable
 
 logger = logging.getLogger(__name__)
