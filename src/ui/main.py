@@ -16,9 +16,9 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QDoubleSpinBox, QGridLayout, QGroupBox,
-    QLabel, QMainWindow, QMenu, QMenuBar,
-    QPushButton, QRadioButton, QSizePolicy, QSpacerItem,
+from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QGridLayout,
+    QGroupBox, QLabel, QMainWindow, QMenu,
+    QMenuBar, QPushButton, QRadioButton, QSizePolicy,
     QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
@@ -40,48 +40,68 @@ class Ui_MainWindow(object):
         self.centralwidget.setEnabled(True)
         self.appLayout = QVBoxLayout(self.centralwidget)
         self.appLayout.setObjectName(u"appLayout")
-        self.groupBox_2 = QGroupBox(self.centralwidget)
-        self.groupBox_2.setObjectName(u"groupBox_2")
-        self.gridLayout = QGridLayout(self.groupBox_2)
-        self.gridLayout.setObjectName(u"gridLayout")
-        self.gridLayout.setContentsMargins(9, 5, -1, 5)
-        self.delayMinSpin = QDoubleSpinBox(self.groupBox_2)
-        self.delayMinSpin.setObjectName(u"delayMinSpin")
-        self.delayMinSpin.setDecimals(1)
-        self.delayMinSpin.setMinimum(1.500000000000000)
-        self.delayMinSpin.setSingleStep(0.200000000000000)
+        self.gridLayout_2 = QGridLayout()
+        self.gridLayout_2.setObjectName(u"gridLayout_2")
+        self.languageComboBox = QComboBox(self.centralwidget)
+        self.languageComboBox.addItem("")
+        self.languageComboBox.addItem("")
+        self.languageComboBox.setObjectName(u"languageComboBox")
 
-        self.gridLayout.addWidget(self.delayMinSpin, 0, 1, 1, 1)
+        self.gridLayout_2.addWidget(self.languageComboBox, 2, 1, 1, 1)
 
-        self.label = QLabel(self.groupBox_2)
-        self.label.setObjectName(u"label")
-
-        self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
-
-        self.label_2 = QLabel(self.groupBox_2)
+        self.label_2 = QLabel(self.centralwidget)
         self.label_2.setObjectName(u"label_2")
 
-        self.gridLayout.addWidget(self.label_2, 1, 0, 1, 1)
+        self.gridLayout_2.addWidget(self.label_2, 5, 0, 1, 1)
 
-        self.delayMaxSpin = QDoubleSpinBox(self.groupBox_2)
+        self.label = QLabel(self.centralwidget)
+        self.label.setObjectName(u"label")
+
+        self.gridLayout_2.addWidget(self.label, 4, 0, 1, 1)
+
+        self.delayMaxSpin = QDoubleSpinBox(self.centralwidget)
         self.delayMaxSpin.setObjectName(u"delayMaxSpin")
         self.delayMaxSpin.setDecimals(1)
         self.delayMaxSpin.setMinimum(1.600000000000000)
         self.delayMaxSpin.setMaximum(10.000000000000000)
         self.delayMaxSpin.setSingleStep(0.200000000000000)
 
-        self.gridLayout.addWidget(self.delayMaxSpin, 1, 1, 1, 1)
+        self.gridLayout_2.addWidget(self.delayMaxSpin, 5, 1, 1, 1)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.delayMinSpin = QDoubleSpinBox(self.centralwidget)
+        self.delayMinSpin.setObjectName(u"delayMinSpin")
+        self.delayMinSpin.setDecimals(1)
+        self.delayMinSpin.setMinimum(1.500000000000000)
+        self.delayMinSpin.setSingleStep(0.200000000000000)
 
-        self.gridLayout.addItem(self.horizontalSpacer, 0, 2, 1, 1)
+        self.gridLayout_2.addWidget(self.delayMinSpin, 4, 1, 1, 1)
 
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.languageLabel = QLabel(self.centralwidget)
+        self.languageLabel.setObjectName(u"languageLabel")
 
-        self.gridLayout.addItem(self.horizontalSpacer_2, 1, 2, 1, 1)
+        self.gridLayout_2.addWidget(self.languageLabel, 2, 0, 1, 1)
 
+        self.label_3 = QLabel(self.centralwidget)
+        self.label_3.setObjectName(u"label_3")
 
-        self.appLayout.addWidget(self.groupBox_2)
+        self.gridLayout_2.addWidget(self.label_3, 3, 0, 1, 1)
+
+        self.serverRegionComboBox = QComboBox(self.centralwidget)
+        self.serverRegionComboBox.addItem("")
+        self.serverRegionComboBox.addItem("")
+        self.serverRegionComboBox.addItem("")
+        self.serverRegionComboBox.addItem("")
+        self.serverRegionComboBox.addItem("")
+        self.serverRegionComboBox.addItem("")
+        self.serverRegionComboBox.setObjectName(u"serverRegionComboBox")
+        self.serverRegionComboBox.setEditable(False)
+
+        self.gridLayout_2.addWidget(self.serverRegionComboBox, 3, 1, 1, 1)
+
+        self.gridLayout_2.setColumnStretch(0, 1)
+        self.gridLayout_2.setColumnStretch(1, 3)
+
+        self.appLayout.addLayout(self.gridLayout_2)
 
         self.groupBox = QGroupBox(self.centralwidget)
         self.groupBox.setObjectName(u"groupBox")
@@ -149,9 +169,20 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"NIKKE Data Collector", None))
         self.actionAbout.setText(QCoreApplication.translate("MainWindow", u"About", None))
-        self.groupBox_2.setTitle(QCoreApplication.translate("MainWindow", u"Configure Delay", None))
-        self.label.setText(QCoreApplication.translate("MainWindow", u"MIN", None))
+        self.languageComboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"English", None))
+        self.languageComboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"\u4e2d\u6587\u7b80\u4f53", None))
+
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"MAX", None))
+        self.label.setText(QCoreApplication.translate("MainWindow", u"MIN", None))
+        self.languageLabel.setText(QCoreApplication.translate("MainWindow", u"Language", None))
+        self.label_3.setText(QCoreApplication.translate("MainWindow", u"Server", None))
+        self.serverRegionComboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"JP", None))
+        self.serverRegionComboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"KR", None))
+        self.serverRegionComboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"GLOBAL", None))
+        self.serverRegionComboBox.setItemText(3, QCoreApplication.translate("MainWindow", u"SEA", None))
+        self.serverRegionComboBox.setItemText(4, QCoreApplication.translate("MainWindow", u"NA", None))
+        self.serverRegionComboBox.setItemText(5, QCoreApplication.translate("MainWindow", u"HK_MO_TW", None))
+
         self.groupBox.setTitle(QCoreApplication.translate("MainWindow", u"Select Tasks", None))
         self.crawl_players_btn.setText(QCoreApplication.translate("MainWindow", u"64 Players", None))
         self.crawl_64_32_btn.setText(QCoreApplication.translate("MainWindow", u"Round of 64 \u2192 32", None))

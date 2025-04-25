@@ -3,10 +3,21 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Annotated, Dict, List, Optional
 
-from PIL import Image
 from dataclass_wizard import JSONPyWizard, JSONWizard, json_key
+from PIL import Image
 
 from nikke_arena.mixin import JSONSerializableMixin
+
+
+class ServerRegion(Enum):
+    """Server regions in NIKKE"""
+    JP = "jp"  # Japanese Server
+    KR = "kr"  # Korean Server
+    GLOBAL = "global"  # Global Server
+    SEA = "sea"  # Southeast Asia Server
+    NA = "na"  # North American Server
+    HK_MO_TW = "hk_mo_tw"  # Hong Kong/Macau/Taiwan Server
+
 
 
 class WeaponType(Enum):
@@ -66,20 +77,20 @@ class ChargeValues:
 
 
 @dataclass
-class Character(JSONWizard):
+class Character(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
 
-    position: int
     id: str = None
     name: str = None
+    position: int = None
     weapon_type: Optional[WeaponType] = None
     charge_values: Optional[ChargeValues] = None
     image: Annotated[Optional[Image.Image], json_key("excluded", dump=False)] = None
 
 
 @dataclass
-class Round(JSONWizard):
+class Round(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
 
@@ -122,6 +133,7 @@ class User(JSONWizard, JSONSerializableMixin):
     user_id: str
     group_id: int = None
     player_index: int = None
+    server_region: Optional[ServerRegion] = None
     profile_image: Annotated[Optional[Image.Image], json_key("excluded", dump=False)] = None
     team_image: Annotated[Optional[Image.Image], json_key("excluded", dump=False)] = None
     rounds: Dict[int, Round] = field(default_factory=dict)

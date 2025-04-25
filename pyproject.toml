@@ -30,7 +30,16 @@ version = "1.0.2"
 authors = ["Your Name <your.email@example.com>"]
 description = "A tool for Nikke: Goddess of Victory data collection"
 name = "nikke-data-collector"
-packages = [{include = "nikke_arena", from = "src"}, {include = "ui", from = "src"}, {include = "tests"}, {include = "scripts"}]
+packages = [
+    {include = "nikke_arena", from = "src"}, 
+    {include = "ui", from = "src"}, 
+    {include = "tests"}, 
+    {include = "scripts"}
+]
+include = [
+    "src/ui/translations/*.qm",
+    "src/ui/translations/*.ts"
+]
 readme = "README.md"
 version = "0.1.0"
 
@@ -51,3 +60,4 @@ build-debug = "scripts.build:build_debug"
 build-release = "scripts.build:build_release"
 compile-ui = "scripts.compile-ui:compile_ui"
 watch-ui = "scripts.compile-ui:watch"
+compile-translations = "scripts.compile_translations:compile_translations"

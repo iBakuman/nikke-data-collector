@@ -1,24 +1,21 @@
-import os
-import re
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
-import cv2
-import imagehash
 import numpy as np
 from PIL import Image
 from diskcache import Cache
 
+from .db.character_dao import CharacterDAO
+from .image_processor import ImageProcessor
 from .logging_config import get_logger
 from .models import Character
-from .resources import get_ref_images_dir
 
 logger = get_logger(__name__)
 
 
 @dataclass
 class MatchResult:
-    """Result of a character matching operation with similarity score"""
+    """Result of a character detection operation with similarity score"""
     character: Optional[Character]  # Matched character or None if no match
     similarity: float  # Similarity score (0.0-1.0)
 
@@ -28,245 +25,93 @@ class MatchResult:
         return self.character is not None
 
 
-class CharacterImageMatcher:
+class CharacterMatcher:
     """
-    A class that matches character images against a reference directory of images.
-    Uses template matching with OpenCV and implements disk caching for improved performance.
+    Character matchers that matches images against character references in SQLite database.
+    Implements template matching with caching for improved performance.
     """
 
-    def __init__(self, cache_dir: str, reference_dir: Optional[str] = None,
-                 cache_size_limit: int = int(1e9), similarity_threshold: Optional[float] = None):
+    def __init__(self,
+                 cache_dir: str, character_dao: CharacterDAO,
+                 similarity_threshold: Optional[float] = None,
+                 cache_size_limit: int = int(1e9)):
         """
-        Initialize the image matcher with reference directory and cache settings.
+        Initialize the character detector with database connection and cache settings.
 
         Args:
-            cache_dir: Directory to store the disk cache. This must be specified.
-            reference_dir: Directory containing reference character images.
-                          If None, uses the default reference directory from resources.
+            cache_dir: Directory to store the disk cache
+            character_dao: Data access object for character data
+            similarity_threshold: Minimum similarity score to consider a match valid (optional)
             cache_size_limit: Maximum cache size in bytes (default: 1GB)
-            similarity_threshold: Minimum similarity score to consider a match valid.
-                                 If None, always returns the best match regardless of score.
         """
-        # Use default reference directory if not specified
-        if reference_dir is None:
-            self.reference_dir = get_ref_images_dir()
-            logger.info(f"Using default reference directory: {self.reference_dir}")
-        else:
-            self.reference_dir = reference_dir
-
         self.cache = Cache(cache_dir, size_limit=cache_size_limit)
         self.similarity_threshold = similarity_threshold
+        self.character_dao = character_dao
 
-        logger.info(f"CharacterImageMatcher initialized with reference dir: {self.reference_dir}")
         logger.info(f"Cache initialized at: {cache_dir}")
         logger.info(
-            f"Similarity threshold: {self.similarity_threshold if self.similarity_threshold is not None else 'None (always return best match)'}")
+            f"Similarity threshold: {similarity_threshold if similarity_threshold is not None else 'None (always return best match)'}")
 
-    @staticmethod
-    def compute_image_hash(image: np.ndarray) -> str:
+    def find_best_match(self, query_image: np.ndarray) -> Tuple[Optional[Character], float]:
         """
-        Compute a perceptual hash for an image to use as cache key.
-        Uses imagehash library for robust hashing that handles minor image variations.
-
-        Args:
-            image: OpenCV image (numpy array)
-
-        Returns:
-            A string hash representing the image
-        """
-        # Convert from OpenCV to PIL format
-        if len(image.shape) == 3:
-            image_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        else:
-            image_pil = Image.fromarray(image)
-
-        # Compute perceptual hash (more robust to minor variations)
-        phash = str(imagehash.phash(image_pil))
-        return phash
-
-    @staticmethod
-    def preprocess_image(image: np.ndarray) -> np.ndarray:
-        """
-        Preprocess image for matching (convert to grayscale).
-
-        Args:
-            image: OpenCV image (numpy array)
-
-        Returns:
-            Preprocessed image
-        """
-        # Convert to grayscale if needed
-        if len(image.shape) == 3:
-            return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        return image
-
-    @staticmethod
-    def match_with_template(query_image: np.ndarray, template_image: np.ndarray) -> float:
-        """
-        Match a query image with a template using OpenCV's template matching.
-        Resizes larger image to match smaller image dimensions.
-
-        Args:
-            query_image: The image to match (preprocessed)
-            template_image: The template to match against (preprocessed)
-
-        Returns:
-            Similarity score (higher is better)
-        """
-        # Determine which image needs resizing
-        query_h, query_w = query_image.shape[:2]
-        template_h, template_w = template_image.shape[:2]
-
-        # Resize the larger image to match the smaller one
-        if query_h > template_h or query_w > template_w:
-            scale = min(template_h / query_h, template_w / query_w)
-            new_size = (int(query_w * scale), int(query_h * scale))
-            query_image = cv2.resize(query_image, new_size, interpolation=cv2.INTER_AREA)
-        elif template_h > query_h or template_w > query_w:
-            scale = min(query_h / template_h, query_w / template_w)
-            new_size = (int(template_w * scale), int(template_h * scale))
-            template_image = cv2.resize(template_image, new_size, interpolation=cv2.INTER_AREA)
-
-        # Perform template matching
-        try:
-            # Use normalized correlation coefficient method for better results
-            result = cv2.matchTemplate(query_image, template_image, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(result)
-            return float(max_val)  # Convert to native Python float for caching
-        except cv2.error as e:
-            logger.error(f"Template matching error: {e}")
-            return 0.0
-
-    @staticmethod
-    def load_image_safely(image_path: str) -> Optional[np.ndarray]:
-        """
-        Safely load an image from path, supporting Unicode characters (e.g., Chinese)
-
-        Args:
-            image_path: Path to the image file
-
-        Returns:
-            Image as numpy array in BGR format (OpenCV format) or None if loading fails
-        """
-        try:
-            # Use PIL to open the image which better handles Unicode paths
-            with Image.open(image_path) as pil_img:
-                # Use existing pil_to_cv method to convert to OpenCV format
-                return CharacterImageMatcher.pil_to_cv(pil_img)
-        except Exception as e:
-            logger.error(f"Failed to load image from {image_path}: {e}")
-            return None
-
-    @staticmethod
-    def pil_to_cv(pil_image: Image.Image) -> np.ndarray:
-        """
-        Convert a PIL image to OpenCV format (numpy array in BGR).
-
-        Args:
-            pil_image: PIL Image object
-
-        Returns:
-            Image as numpy array in BGR format (OpenCV format)
-        """
-        # Ensure image is in RGB mode
-        if pil_image.mode != 'RGB':
-            pil_image = pil_image.convert('RGB')
-
-        # Convert to numpy array (RGB format)
-        img_array = np.array(pil_image)
-
-        # Convert from RGB to BGR (OpenCV format)
-        return cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-
-    @staticmethod
-    def extract_character_info_from_filename(filename: str) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Extract character ID and name from a filename.
-        Expected format: "001_character_name_a.png"
-
-        Args:
-            filename: Filename to parse
-
-        Returns:
-            Tuple of (character_id, character_name) or (None, None) if parsing fails
-        """
-        # Extract using regex pattern for standard format with letter suffix
-        match = re.match(r'^(\d{3})_([^_]+)_[a-z]\.(?:png|jpg|jpeg)$', filename, re.IGNORECASE)
-        if match:
-            return match.group(1), match.group(2)
-
-        # Try alternative pattern without letter suffix
-        match = re.match(r'^(\d{3})_([^_]+)\.(?:png|jpg|jpeg)$', filename, re.IGNORECASE)
-        if match:
-            return match.group(1), match.group(2)
-
-        return None, None
-
-    def find_best_match(self, query_image: np.ndarray) -> Tuple[Optional[str], Optional[str], float]:
-        """
-        Find the best matching character ID and name from reference directory.
+        Find the best matching character from the database.
 
         Args:
             query_image: Input image to match
 
         Returns:
-            Tuple of (character_id, character_name, similarity_score)
-            If no match is found, returns (None, None, best_similarity)
+            Tuple of (Character, similarity_score) or (None, best_similarity) if no match found
         """
         # Preprocess query image
-        preprocessed_query = self.preprocess_image(query_image)
+        preprocessed_query = ImageProcessor.preprocess_image(query_image)
 
-        best_match_id = None
-        best_match_name = None
+        best_match = None
         best_similarity = 0.0
 
-        # Scan all files in reference directory
-        for filename in os.listdir(self.reference_dir):
-            if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        # Get all characters from database
+        characters = self.character_dao.get_all_characters()
+
+        for character in characters:
+            # Get all images for this character
+            char_images = self.character_dao.get_character_images(character.id)
+
+            # Skip if no images for this character
+            if not char_images:
                 continue
 
-            # Extract ID from filename (format: 123_name_a.png)
-            match = re.match(r'^(\d{3})_', filename)
-            if not match:
-                continue
+            # Test each image
+            for image_id, image_data, _ in char_images:
+                try:
+                    # Convert blob to OpenCV image and preprocess
+                    ref_image = ImageProcessor.blob_to_cv_image(image_data)
+                    preprocessed_ref = ImageProcessor.preprocess_image(ref_image)
 
-            try:
-                # Load and preprocess reference image - handle Unicode paths
-                ref_image_path = os.path.join(self.reference_dir, filename)
-                ref_image = self.load_image_safely(ref_image_path)
-                if ref_image is None:
-                    logger.warning(f"Failed to load reference image: {ref_image_path}")
-                    continue
+                    # Match images
+                    similarity = ImageProcessor.match_with_template(
+                        preprocessed_query, preprocessed_ref
+                    )
 
-                preprocessed_ref = self.preprocess_image(ref_image)
+                    # Update best match if better
+                    if similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = character
 
-                # Match images
-                similarity = self.match_with_template(preprocessed_query, preprocessed_ref)
+                except Exception as e:
+                    logger.error(f"Error processing character image {character.id}/{image_id}: {e}")
 
-                # Update best match if better
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    char_id, char_name = self.extract_character_info_from_filename(filename)
-                    best_match_id = char_id
-                    best_match_name = char_name
-
-            except Exception as e:
-                logger.error(f"Error processing reference image {filename}: {e}")
-
-        # If threshold is None, always return the best match
-        # Otherwise, only return the match if it meets the threshold
+        # Check against threshold if set
         if self.similarity_threshold is None:
             logger.info(
-                f"Best match: ID={best_match_id}, name={best_match_name}, similarity={best_similarity:.4f} (no threshold applied)")
-            return best_match_id, best_match_name, best_similarity
+                f"Best match: ID={best_match.id if best_match else None}, similarity={best_similarity:.4f} (no threshold applied)")
+            return best_match, best_similarity
         elif best_similarity >= self.similarity_threshold:
             logger.info(
-                f"Best match: ID={best_match_id}, name={best_match_name}, similarity={best_similarity:.4f} (threshold={self.similarity_threshold:.4f})")
-            return best_match_id, best_match_name, best_similarity
+                f"Best match: ID={best_match.id if best_match else None}, similarity={best_similarity:.4f} (threshold={self.similarity_threshold:.4f})")
+            return best_match, best_similarity
         else:
             logger.info(
                 f"No match found with similarity >= {self.similarity_threshold:.4f} (best was {best_similarity:.4f})")
-            return None, None, best_similarity
+            return None, best_similarity
 
     def _match_core(self, query_image: np.ndarray, image_source: str = "Unknown") -> MatchResult:
         """
@@ -281,7 +126,7 @@ class CharacterImageMatcher:
         """
         try:
             # Compute hash for cache lookup
-            cache_key = self.compute_image_hash(query_image)
+            cache_key = ImageProcessor.compute_image_hash(query_image)
 
             # Check if result is in cache
             if cache_key in self.cache:
@@ -292,37 +137,19 @@ class CharacterImageMatcher:
                 if cached_result is None:
                     return MatchResult(None, 0.0)
 
-                char_id, char_name, similarity = cached_result
-                if char_id is None:
-                    return MatchResult(None, similarity)
-
-                character = Character(
-                    position=0,  # Position not known from matching alone
-                    id=char_id,
-                    name=char_name
-                )
+                character, similarity = cached_result
                 return MatchResult(character, similarity)
 
             logger.info(f"Cache miss for image from {image_source}, performing matching...")
 
             # Perform matching
-            char_id, char_name, similarity = self.find_best_match(query_image)
+            character, similarity = self.find_best_match(query_image)
 
             # Create result object and cache results
-            if char_id is not None:
-                character = Character(
-                    position=0,  # Position not known from matching alone
-                    id=char_id,
-                    name=char_name
-                )
-                result = MatchResult(character, similarity)
+            result = MatchResult(character, similarity)
 
-                # Cache the result
-                self.cache[cache_key] = (char_id, char_name, similarity)
-            else:
-                result = MatchResult(None, similarity)
-                # Don't cache null results so we can retry matching next time
-                # self.cache[cache_key] = (None, None, similarity)
+            # Cache the result
+            self.cache[cache_key] = (character, similarity)
 
             return result
 
@@ -346,7 +173,7 @@ class CharacterImageMatcher:
             if isinstance(image, str):
                 # Load image from file path
                 image_source = f"file: {image}"
-                query_image = self.load_image_safely(image)
+                query_image = ImageProcessor.load_image_safely(image)
                 if query_image is None:
                     logger.error(f"Failed to load image: {image}")
                     return MatchResult(None, 0.0)
@@ -357,7 +184,7 @@ class CharacterImageMatcher:
             elif isinstance(image, Image.Image):
                 # Convert PIL image to OpenCV format
                 image_source = "PIL image"
-                query_image = self.pil_to_cv(image)
+                query_image = ImageProcessor.pil_to_cv(image)
             else:
                 logger.error(f"Unsupported image type: {type(image)}. Must be str, np.ndarray, or PIL.Image.Image")
                 return MatchResult(None, 0.0)
@@ -372,4 +199,54 @@ class CharacterImageMatcher:
     def clear_cache(self):
         """Clear the entire cache"""
         self.cache.clear()
-        logger.info("Image matcher cache cleared")
+        logger.info("Character detector cache cleared")
+
+    def populate_from_image_directory(self, directory_path: str, pattern=r"^(\d{3})_([^_]+)_[a-z]\.(?:png|jpg|jpeg)$"):
+        """
+        Utility method to populate the database from a directory of images.
+        This method is provided for migration from the old file-based system.
+
+        Args:
+            directory_path: Path to directory containing character images
+            pattern: Regex pattern to extract character ID and name from filenames
+                    Default: "001_character_name_a.png" -> ID: "001", name: "character_name"
+
+        Returns:
+            Number of images successfully imported
+        """
+        import os
+        import re
+
+        logger.info(f"Populating database from directory: {directory_path}")
+
+        count = 0
+        for filename in os.listdir(directory_path):
+            if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                continue
+
+            # Extract ID and name using regex
+            match = re.match(pattern, filename)
+            if not match:
+                # Try alternative pattern without letter suffix
+                match = re.match(r"^(\d{3})_([^_]+)\.(?:png|jpg|jpeg)$", filename)
+                if not match:
+                    logger.warning(f"Skipping file with unrecognized format: {filename}")
+                    continue
+
+            char_id = match.group(1)
+            char_name = match.group(2)
+
+            # Check if character exists, if not create it
+            char = self.character_dao.get_character(char_id)
+            if not char:
+                self.character_dao.add_character(char_id,chinese_name=char_name)
+
+            # Add the image
+            image_path = os.path.join(directory_path, filename)
+            success = self.character_dao.add_character_image(char_id, image_path)
+
+            if success:
+                count += 1
+
+        logger.info(f"Successfully imported {count} images into the database")
+        return count

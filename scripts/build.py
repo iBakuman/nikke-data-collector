@@ -10,20 +10,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-
-def get_project_root() -> Path:
-    """Get the project root directory"""
-    # Start with the current script's directory
-    current_dir = Path(__file__).resolve().parent
-
-    # Navigate up to find project root (where src is)
-    project_dir = current_dir
-    while project_dir.name != "nikke-data-collector" and project_dir != Path("/"):
-        project_dir = project_dir.parent
-
-    if project_dir.name != "nikke-data-collector":
-        raise Exception("Could not find project root directory")
-    return project_dir
+from scripts.common import PROJECT_ROOT
 
 
 def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone=True, onefile=False) -> Optional[
@@ -38,12 +25,11 @@ def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone
         standalone: Create standalone executable
         onefile: Create a single executable file
     """
-    project_root = get_project_root()
-    src_dir = project_root / "src"
+    src_dir =  PROJECT_ROOT/ "src"
 
     # Determine output paths
     if not output_dir:
-        output_dir = project_root / "dist"
+        output_dir = PROJECT_ROOT/ "dist"
     else:
         output_dir = Path(output_dir)
 

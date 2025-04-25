@@ -3,7 +3,7 @@ from typing import List, Optional
 from PIL import Image
 
 from nikke_arena.profile_collector import ProfileCollector
-from .character_matcher import CharacterImageMatcher
+from .character_matcher import CharacterMatcher
 from .logging_config import get_logger
 from .models import Character, Round, User
 from .mouse_control import MouseController
@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 class LineupProcessor:
 
-    def __init__(self, controller: MouseController, capturer: WindowCapturer, profile_collector: ProfileCollector, matcher: CharacterImageMatcher = None):
+    def __init__(self, controller: MouseController, capturer: WindowCapturer, profile_collector: ProfileCollector, matcher:  CharacterMatcher= None):
         self.controller = controller
         self.capturer = capturer
         self.profile_collector = profile_collector
@@ -33,9 +33,8 @@ class LineupProcessor:
         try:
             for round_index in range(1, 6):
                 round_pos = TEAM_INFO.get_round_button(round_index)
-                if round_index > 1:
-                    self.controller.click_at_position(round_pos)
-                    logger.info(f"Clicked on round {round_index} button")
+                self.controller.click_at_position(round_pos)
+                logger.info(f"Clicked on round {round_index} button")
                 capture_result = self.capturer.capture_region(TEAM_INFO.round_region)
                 _round = Round(round_index=round_index, image=capture_result.to_pil())
                 self._capture_character_images(_round)

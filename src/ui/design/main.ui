@@ -37,91 +37,116 @@
    </property>
    <layout class="QVBoxLayout" name="appLayout">
     <item>
-     <widget class="QGroupBox" name="groupBox_2">
-      <property name="title">
-       <string>Configure Delay</string>
-      </property>
-      <layout class="QGridLayout" name="gridLayout">
-       <property name="leftMargin">
-        <number>9</number>
-       </property>
-       <property name="topMargin">
-        <number>5</number>
-       </property>
-       <property name="bottomMargin">
-        <number>5</number>
-       </property>
-       <item row="0" column="1">
-        <widget class="QDoubleSpinBox" name="delayMinSpin">
-         <property name="decimals">
-          <number>1</number>
-         </property>
-         <property name="minimum">
-          <double>1.500000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.200000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0">
-        <widget class="QLabel" name="label">
+     <layout class="QGridLayout" name="gridLayout_2" rowstretch="0,0,0,0,0,0,0" columnstretch="1,3">
+      <item row="2" column="1">
+       <widget class="QComboBox" name="languageComboBox">
+        <item>
          <property name="text">
-          <string>MIN</string>
+          <string>English</string>
          </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_2">
+        </item>
+        <item>
          <property name="text">
-          <string>MAX</string>
+          <string>中文简体</string>
          </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QDoubleSpinBox" name="delayMaxSpin">
-         <property name="decimals">
-          <number>1</number>
+        </item>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>MAX</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>MIN</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QDoubleSpinBox" name="delayMaxSpin">
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>1.600000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.200000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QDoubleSpinBox" name="delayMinSpin">
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>1.500000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.200000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="languageLabel">
+        <property name="text">
+         <string>Language</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Server</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QComboBox" name="serverRegionComboBox">
+        <property name="editable">
+         <bool>false</bool>
+        </property>
+        <item>
+         <property name="text">
+          <string>JP</string>
          </property>
-         <property name="minimum">
-          <double>1.600000000000000</double>
+        </item>
+        <item>
+         <property name="text">
+          <string>KR</string>
          </property>
-         <property name="maximum">
-          <double>10.000000000000000</double>
+        </item>
+        <item>
+         <property name="text">
+          <string>GLOBAL</string>
          </property>
-         <property name="singleStep">
-          <double>0.200000000000000</double>
+        </item>
+        <item>
+         <property name="text">
+          <string>SEA</string>
          </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
+        </item>
+        <item>
+         <property name="text">
+          <string>NA</string>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
+        </item>
+        <item>
+         <property name="text">
+          <string>HK_MO_TW</string>
          </property>
-        </spacer>
-       </item>
-       <item row="1" column="2">
-        <spacer name="horizontalSpacer_2">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </widget>
+        </item>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <widget class="QGroupBox" name="groupBox">

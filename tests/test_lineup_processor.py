@@ -1,7 +1,10 @@
+import pytest
+
 from nikke_arena.lineup_processor import LineupProcessor
 from tests.utils import keyboard_terminable
 
 
+@pytest.mark.width(2000)
 @keyboard_terminable()
 def test_lineup_processor(lineup_processor: LineupProcessor):
     user = lineup_processor.process()

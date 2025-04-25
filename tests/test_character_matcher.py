@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import List
 
-from nikke_arena.character_matcher import CharacterImageMatcher
+from nikke_arena.character_matcher import CharacterMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -13,13 +13,7 @@ class TestCase:
     expected_id: str
 
 
-def test_character_matcher():
-    matcher = CharacterImageMatcher(
-        # reference_dir="testdata/matcher/ref",
-        cache_dir="testdata/matcher/cache",
-        cache_size_limit=int(2e9)  # 2GB
-    )
-
+def test_character_matcher(matcher: CharacterMatcher):
     cases: List[TestCase] = [
         TestCase(image_name="001-rosanna.png", expected_id="012"),
         TestCase(image_name="002-jackal.png", expected_id="007"),
@@ -34,3 +28,7 @@ def test_character_matcher():
         result = matcher.match(image_path)
         assert result is not None
         assert result.character.id == case.expected_id
+
+def test_character_matcher_populate_db(matcher: CharacterMatcher):
+    matcher.populate_from_image_directory("testdata/ref")
+

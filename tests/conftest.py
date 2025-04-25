@@ -1,7 +1,8 @@
 import pytest
 
 from nikke_arena.battle_data_collector import BattleDataCollector
-from nikke_arena.character_matcher import CharacterImageMatcher
+from nikke_arena.character_matcher import CharacterMatcher
+from nikke_arena.db.character_dao import CharacterDAO
 from nikke_arena.delay_manager import DelayManager
 from nikke_arena.group_processor import GroupProcessor
 from nikke_arena.image_detector import ImageDetector
@@ -63,12 +64,16 @@ def tournament_recorder(manager: WindowManager, controller: MouseController,
                         image_detector: ImageDetector, recorder: WindowRecorder) -> TournamentRecorder:
     return TournamentRecorder(manager, controller, image_detector, recorder)
 
+@pytest.fixture
+def character_dao() -> CharacterDAO:
+    return CharacterDAO()
+
 
 @pytest.fixture
-def matcher() -> CharacterImageMatcher:
-    return CharacterImageMatcher(
-        reference_dir="testdata/matcher/ref",
+def matcher() -> CharacterMatcher:
+    return CharacterMatcher(
         cache_dir="testdata/matcher/cache",
+        character_dao=CharacterDAO(),
         cache_size_limit=int(2e9)
     )
 
@@ -78,7 +83,7 @@ def profile_collector(capturer: WindowCapturer, controller: MouseController) -> 
 
 @pytest.fixture
 def lineup_processor(capturer: WindowCapturer, controller: MouseController,
-                     matcher: CharacterImageMatcher, profile_collector: ProfileCollector) -> LineupProcessor:
+                     matcher: CharacterMatcher, profile_collector: ProfileCollector) -> LineupProcessor:
     return LineupProcessor(controller, capturer, profile_collector, matcher=matcher)
 
 

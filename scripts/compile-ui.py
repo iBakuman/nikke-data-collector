@@ -14,13 +14,10 @@ from pathlib import Path
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent
 from watchdog.observers import Observer
 
+from scripts.common import PROJECT_ROOT
 
-def get_project_paths():
-    """Return the project root, design directory and output directory paths."""
-    project_root = Path(__file__).parent.parent
-    design_dir = project_root / "src" / "ui" / "design"
-    output_dir = project_root / "src" / "ui"
-    return project_root, design_dir, output_dir
+design_dir = PROJECT_ROOT / "src" / "ui" / "design"
+output_dir = PROJECT_ROOT / "src" / "ui"
 
 
 def compile_single_ui_file(ui_file, output_dir):
@@ -31,7 +28,6 @@ def compile_single_ui_file(ui_file, output_dir):
     print(f"Compiling {ui_file.name} -> {py_file.name}...")
 
     try:
-        # Run pyside6-uic command
         result = subprocess.run(
             ["pyside6-uic", str(ui_file), "-o", str(py_file)],
             check=True,
@@ -63,9 +59,6 @@ def compile_ui():
     """
     Finds and compiles all .ui files from design folder to python files.
     """
-    # Get project paths
-    project_root, design_dir, output_dir = get_project_paths()
-
     # Ensure directories exist
     if not design_dir.exists():
         print(f"Error: Design directory not found: {design_dir}")
@@ -97,9 +90,9 @@ def compile_ui():
 class UIFileEventHandler(FileSystemEventHandler):
     """Event handler for UI file changes."""
 
-    def __init__(self, design_dir, output_dir):
-        self.design_dir = design_dir
-        self.output_dir = output_dir
+    def __init__(self, _design_dir, _output_dir):
+        self.design_dir = _design_dir
+        self.output_dir = _output_dir
         super().__init__()
 
     def on_modified(self, event):
@@ -133,10 +126,6 @@ class UIFileEventHandler(FileSystemEventHandler):
 
 def watch():
     """Watch for changes to UI files and recompile them automatically."""
-    # Get project paths
-    project_root, design_dir, output_dir = get_project_paths()
-
-    # Ensure directories exist
     if not design_dir.exists():
         print(f"Error: Design directory not found: {design_dir}")
         return False
@@ -167,6 +156,7 @@ def watch():
 
     observer.join()
     return True
+
 
 if __name__ == "__main__":
     watch()

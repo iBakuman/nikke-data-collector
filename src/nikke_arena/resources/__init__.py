@@ -4,8 +4,7 @@ from pathlib import Path
 
 __all__ = [
     'RESOURCE_DIR',
-    'get_detectable_image_path',
-    'get_ref_images_dir'
+    'logo_path'
 ]
 
 
@@ -33,7 +32,6 @@ RESOURCE_DIR = _get_base_dir()
 print(f"Resource directory: {RESOURCE_DIR}")
 logo_path = RESOURCE_DIR / "logo.ico"
 print(f"Logo path: {logo_path}")
-
 
 # Make resources directory structure visible
 def get_detectable_image_path(image_name: str) -> str:

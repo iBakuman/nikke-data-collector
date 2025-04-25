@@ -7,8 +7,10 @@ import os
 import signal
 import sys
 import time
+from typing import Union
 
 import keyboard
+from PySide6.QtCore import QLocale, QTranslator
 from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QMainWindow,
                                QMessageBox, QPushButton, QTextEdit,
@@ -17,7 +19,8 @@ from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QMainWindow,
 from about import AboutWindow
 from admin_helper import is_admin
 from config_manager import ConfigManager
-from nikke_arena.character_matcher import CharacterImageMatcher
+from nikke_arena import CharacterDAO
+from nikke_arena.character_matcher import CharacterMatcher
 from nikke_arena.delay_manager import DelayManager
 from nikke_arena.image_detector import ImageDetector
 from nikke_arena.lineup_processor import LineupProcessor
@@ -46,7 +49,7 @@ logger.info("Starting NIKKE Arena application")
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, config_manager: ConfigManager):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -65,7 +68,7 @@ class MainWindow(QMainWindow):
             logger.error(f"Failed to set application icon: {e}")
 
         # Initialize config manager
-        self.config_manager = ConfigManager()
+        self.config_manager = config_manager
 
         # Apply saved configuration
         self._apply_saved_config()
@@ -73,6 +76,7 @@ class MainWindow(QMainWindow):
         # Connect UI signals
         self.ui.startBtn.clicked.connect(self._on_confirm)
         self.path_selector.pathChanged.connect(self._on_path_changed)
+        self.ui.languageComboBox.currentIndexChanged.connect(self._on_language_changed)
 
         # Set up About menu
         self._setup_about_menu()
@@ -93,10 +97,39 @@ class MainWindow(QMainWindow):
         if last_save_dir and os.path.exists(last_save_dir):
             self.path_selector.set_path(last_save_dir)
 
+        # Set language selection based on config
+        saved_language = self.config_manager.get("app_language", "")
+        if saved_language.startswith("zh"):
+            self.ui.languageComboBox.setCurrentIndex(1)  # Chinese
+        else:
+            self.ui.languageComboBox.setCurrentIndex(0)  # English
+
     def _on_path_changed(self, path):
         """Save the selected path when it changes"""
         self.config_manager.set("last_save_dir", path)
         self.config_manager.save_config()
+
+    def _on_language_changed(self,index):
+        """Handle language change from dropdown"""
+        # Map index to language code
+        if index == 1:  # Chinese
+            language_code = "zh_CN"
+        else:  # Default to English
+            language_code = "en_US"
+        self.config_manager.set("app_language", language_code)
+        self.config_manager.save_config()
+        # Show notification that restart is required
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Information)
+        # Use translation for current language
+        if language_code.startswith('zh'):
+            msg.setWindowTitle("需要重启")
+            msg.setText("语言设置已更改。请重启应用程序以应用新的语言设置。")
+        else:
+            msg.setWindowTitle("Restart Required")
+            msg.setText(
+                "Language setting has been changed. Please restart the application to apply the new language setting.")
+        msg.exec()
 
     @staticmethod
     def _copy_to_clipboard(text):
@@ -104,7 +137,7 @@ class MainWindow(QMainWindow):
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
 
-    def show_message(self, title, message, icon=QMessageBox.Icon.Information, enable_copy=False):
+    def show_message(self, title, message, icon: Union[QMessageBox.Icon, int] = QMessageBox.Icon.Information, enable_copy=False):
         if not enable_copy:
             # Standard message box for normal messages
             msg = QMessageBox(self)
@@ -143,12 +176,12 @@ class MainWindow(QMainWindow):
             button_layout = QHBoxLayout()
 
             # Copy button
-            copy_btn = QPushButton("Copy to Clipboard", dialog)
+            copy_btn = QPushButton(self.tr("Copy to Clipboard"), dialog)
             copy_btn.clicked.connect(lambda: self._copy_to_clipboard(message))
             button_layout.addWidget(copy_btn)
 
             # OK button
-            ok_btn = QPushButton("OK", dialog)
+            ok_btn = QPushButton(self.tr("OK"), dialog)
             ok_btn.clicked.connect(dialog.accept)
             button_layout.addWidget(ok_btn)
 
@@ -173,7 +206,7 @@ class MainWindow(QMainWindow):
         elif self.ui.crawl_2_1_btn.isChecked():
             self._execute_crawl_2_1()
         else:
-            self.show_message("Error", "No Task Selected", QMessageBox.Icon.Critical)
+            self.show_message(self.tr("Error"), self.tr("No Task Selected"), QMessageBox.Icon.Critical)
 
     def _execute_data_collection(self, collection_type, stage=None, success_msg=None):
         """
@@ -187,7 +220,7 @@ class MainWindow(QMainWindow):
         # Check if save path is empty
         storage_path = self.path_selector.get_path()
         if not storage_path:
-            self.show_message("Error", "Save path is empty. Please select a directory to save data.",
+            self.show_message(self.tr("Error"), self.tr("Save path is empty. Please select a directory to save data."),
                               QMessageBox.Icon.Critical)
             return
 
@@ -222,7 +255,8 @@ class MainWindow(QMainWindow):
             delay_min = self.ui.delayMinSpin.value()
             delay_max = self.ui.delayMaxSpin.value()
             if delay_min >= delay_max:
-                self.show_message("Error", "Delay min is greater than or equal to delay max", QMessageBox.Icon.Critical)
+                self.show_message(self.tr("Error"), self.tr("Delay min is greater than or equal to delay max"),
+                                  QMessageBox.Icon.Critical)
                 return
             self.config_manager.set("delay.min", delay_min)
             self.config_manager.set("delay.max", delay_max)
@@ -233,7 +267,7 @@ class MainWindow(QMainWindow):
                 self.window_manager = WindowManager(process_name="nikke.exe")
                 self.window_capturer = WindowCapturer(self.window_manager)
             except WindowNotFoundException:
-                self.show_message("Error", "NIKKE is not running. Please start the game first.",
+                self.show_message(self.tr("Error"), self.tr("NIKKE is not running. Please start the game first."),
                                   QMessageBox.Icon.Critical)
                 return
             except Exception as e:
@@ -248,9 +282,9 @@ class MainWindow(QMainWindow):
             logger.info(f"Using cache directory: {cache_dir}")
 
             if collection_type == 'players':
+                character_dao =CharacterDAO()
                 # Initialize character matcher with platform-specific cache dir
-                character_matcher = CharacterImageMatcher(cache_dir=cache_dir)
-
+                character_matcher = CharacterMatcher(cache_dir=cache_dir, character_dao=character_dao)
                 profile_collector = ProfileCollector(controller=mouse_controller, capturer=self.window_capturer)
                 lineup_processor = LineupProcessor(
                     controller=mouse_controller,
@@ -310,22 +344,22 @@ class MainWindow(QMainWindow):
 
             # Add execution time to success message
             if success_msg:
-                success_msg = f"{success_msg}\nExecution time: {time_str}"
+                success_msg = f"{success_msg}\n{self.tr('Execution time')}: {time_str}"
             else:
-                success_msg = f"Data collection completed successfully\nExecution time: {time_str}"
+                success_msg = f"{self.tr('Data collection completed successfully')}\n{self.tr('Execution time')}: {time_str}"
 
             # Log execution time
             logger.info(f"Task completed in {time_str}")
 
             # Show results
-            self.show_message("Success", success_msg)
+            self.show_message(self.tr("Success"), success_msg)
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
             logger.info(f"Error during processing: {e}")
             logger.info(f"Error details:\n{error_details}")
 
-            self.show_message("Error", "Error: {0}".format(str(e)), QMessageBox.Icon.Critical)
+            self.show_message(self.tr("Error"), self.tr("Error: {0}").format(str(e)), QMessageBox.Icon.Critical)
         finally:
             # Re-enable UI elements
             self.ui.startBtn.setEnabled(True)
@@ -336,7 +370,7 @@ class MainWindow(QMainWindow):
         """Execute group data collection"""
         self._execute_data_collection(
             collection_type='players',
-            success_msg="Group data collection completed successfully"
+            success_msg=self.tr("Group data collection completed successfully")
         )
 
     def _execute_crawl_64_32(self):
@@ -344,7 +378,7 @@ class MainWindow(QMainWindow):
         self._execute_data_collection(
             collection_type='promotion',
             stage=TournamentStage.STAGE_64_32,
-            success_msg="64->32 tournament data collection completed successfully"
+            success_msg=self.tr("64->32 tournament data collection completed successfully")
         )
 
     def _execute_crawl_32_16(self):
@@ -352,7 +386,7 @@ class MainWindow(QMainWindow):
         self._execute_data_collection(
             collection_type='promotion',
             stage=TournamentStage.STAGE_32_16,
-            success_msg="32->16 tournament data collection completed successfully"
+            success_msg=self.tr("32->16 tournament data collection completed successfully")
         )
 
     def _execute_crawl_16_8(self):
@@ -360,7 +394,7 @@ class MainWindow(QMainWindow):
         self._execute_data_collection(
             collection_type='promotion',
             stage=TournamentStage.STAGE_16_8,
-            success_msg="16->8 tournament data collection completed successfully"
+            success_msg=self.tr("16->8 tournament data collection completed successfully")
         )
 
     def _execute_crawl_8_4(self):
@@ -368,7 +402,7 @@ class MainWindow(QMainWindow):
         self._execute_data_collection(
             collection_type='championship',
             stage=TournamentStage.STAGE_8_4,
-            success_msg="8->4 tournament data collection completed successfully"
+            success_msg=self.tr("8->4 tournament data collection completed successfully")
         )
 
     def _execute_crawl_4_2(self):
@@ -376,7 +410,7 @@ class MainWindow(QMainWindow):
         self._execute_data_collection(
             collection_type='championship',
             stage=TournamentStage.STAGE_4_2,
-            success_msg="4->2 tournament data collection completed successfully"
+            success_msg=self.tr("4->2 tournament data collection completed successfully")
         )
 
     def _execute_crawl_2_1(self):
@@ -384,7 +418,7 @@ class MainWindow(QMainWindow):
         self._execute_data_collection(
             collection_type='championship',
             stage=TournamentStage.STAGE_2_1,
-            success_msg="2->1 tournament data collection completed successfully"
+            success_msg=self.tr("2->1 tournament data collection completed successfully")
         )
 
     def _setup_about_menu(self):
@@ -402,7 +436,40 @@ class App:
         """Initialize the main application"""
         # Create application
         self.app = QApplication([])
+        # Store app instance for easy access from other parts of the program
+        self.app.parent_app = self
         set_app_theme(self.app)
+
+        # Load translations based on system locale or saved preference
+        self.config_manager = ConfigManager()
+        self.translator = QTranslator()
+
+        # Get language preference from config, or use system locale as default
+        saved_language = self.config_manager.get("app_language", "")
+        if saved_language:
+            current_locale = QLocale(saved_language)
+        else:
+            # Use system locale
+            current_locale = QLocale.system()
+
+        # Get language name (e.g., "zh_CN", "en_US")
+        lang_name = current_locale.name()
+        logger.info(f"Setting application language to: {lang_name}")
+
+        # Check if translation file exists and load it
+        try:
+            # Import the translation file loading function from ui.asset
+            from ui.asset import get_translation_file
+            # Try loading the translation file for the current locale
+            translation_path = get_translation_file(lang_name)
+            # Try loading the translation file
+            ok = self.translator.load(translation_path)
+            logger.info(f"Load translation file for {lang_name}")
+            self.app.installTranslator(self.translator)
+            if not ok:
+                logger.warning(f"Failed to load translation file for {lang_name}, using english")
+        except Exception as e:
+            logger.error(f"Error loading translation: {e}")
 
         icon_path = logo_path
         if icon_path.exists():
@@ -429,7 +496,8 @@ class App:
             sys.exit(1)
         keyboard.add_hotkey('ctrl+shift+alt+q', self._force_quit)
         logger.info("Global force quit shortcut registered: Ctrl+Shift+Alt+Q")
-        self.window = MainWindow()
+        self.window = MainWindow(self.config_manager)
+
 
     @staticmethod
     def _force_quit():
@@ -441,11 +509,8 @@ class App:
     def run(self) -> int:
         """Run the application"""
         self.window.show()
-
         # Clear focus from all controls after showing window
         self.window.setFocus()
-
-        # self.window.show_message("Resources Directory", str(RESOURCE_DIR), enable_copy=True)
         return self.app.exec()
 
 

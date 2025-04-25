@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 @keyboard_terminable()
 def test_group_processor(group_processor: GroupProcessor):
-    group = group_processor.process([1])
+    group = group_processor.process()
     save_dir = "testdata/group_processor"
     assert group is not None
     group.save_combined_image(os.path.join(save_dir, "combined.png"))
