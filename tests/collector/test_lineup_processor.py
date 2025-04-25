@@ -1,7 +1,7 @@
 import pytest
 
 from collector.lineup_processor import LineupProcessor
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 
 @pytest.mark.width(2000)

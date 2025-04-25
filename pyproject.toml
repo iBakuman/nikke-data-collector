@@ -31,10 +31,11 @@ authors = ["Your Name <your.email@example.com>"]
 description = "A tool for Nikke: Goddess of Victory data collection"
 name = "nikke-data-collector"
 packages = [
-    {include = "nikke_arena", from = "src"}, 
-    {include = "ui", from = "src"}, 
+    {include = "collector", from = "src"},
+    {include = "repository", from = "src"},
+    {include = "ui", from = "src"},
     {include = "tests"}, 
-    {include = "scripts"}
+    {include = "scripts"},
 ]
 include = [
     "src/ui/translations/*.qm",

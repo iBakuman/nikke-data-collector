@@ -2,7 +2,7 @@ import os
 
 from collector.cheer_processor import CheerCapturer
 from collector.utils import combine_images
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 
 @keyboard_terminable()

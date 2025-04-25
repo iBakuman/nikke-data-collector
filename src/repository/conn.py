@@ -5,7 +5,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Optional
 
-DEFAULT_DB_NAME = 'nikke.db'
+DEFAULT_DB_NAME = 'nikke.repository'
 
 def get_db_path(db_name: Optional[str] = None) -> Path:
     """
@@ -22,7 +22,7 @@ def get_db_path(db_name: Optional[str] = None) -> Path:
 
     try:
         # Try to get the path from the package resources (for installed package)
-        return files('collector.db.data').joinpath(db_name)
+        return files('collector.repository.data').joinpath(db_name)
     except (ModuleNotFoundError, ImportError, ValueError):
         # Fallback to a local path for development
         data_dir = Path(__file__).parent / 'data'

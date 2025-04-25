@@ -1,7 +1,7 @@
 from src.collector.models import TournamentStage
 from src.collector.tournament_promotion_collector import \
     PromotionDataCollector
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 
 @keyboard_terminable()

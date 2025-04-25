@@ -10,7 +10,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from .character_matcher import CharacterMatcher, MatchResult
-from .db.character_dao import CharacterDAO
+from repository import CharacterDAO
 from .image_processor import ImageProcessor
 
 

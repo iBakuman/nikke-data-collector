@@ -2,7 +2,7 @@ import logging
 import os
 
 from collector.group_processor import GroupProcessor
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 logger = logging.getLogger(__name__)
 

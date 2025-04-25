@@ -1,9 +1,10 @@
 import logging
 
 from collector.mouse_control import MouseController
-from collector.ui_def import BATTLE_RESULT, CHAMPIONSHIP_TOURNAMENT, GROUP_DETAIL, PROFILE, PROMOTION_TOURNAMENT, TEAM_INFO
+from collector.ui_def import BATTLE_RESULT, CHAMPIONSHIP_TOURNAMENT, GROUP_DETAIL, PROFILE, PROMOTION_TOURNAMENT, \
+    TEAM_INFO
 from collector.window_capturer import WindowCapturer
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 logger = logging.getLogger(__name__)
 

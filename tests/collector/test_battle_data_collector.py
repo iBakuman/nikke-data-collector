@@ -1,5 +1,5 @@
 from collector.battle_data_collector import BattleDataCollector
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 
 @keyboard_terminable()

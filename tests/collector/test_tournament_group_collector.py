@@ -7,7 +7,7 @@ multiple tournament groups in NIKKE.
 import logging
 
 from collector.tournament_group_collector import GroupDataCollector
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -166,7 +166,7 @@ def migrate_database(db_path: Optional[Path] = None):
 
         # Find migrations in package resources
         try:
-            migrations_dir = importlib.resources.files('collector.db.data.migrations')
+            migrations_dir = importlib.resources.files('collector.repository.data.migrations')
             migrations = load_migrations_from_directory(migrations_dir)
         except (ModuleNotFoundError, ImportError, ValueError) as e:
             logger.warning(f"Could not load migrations from package: {e}")

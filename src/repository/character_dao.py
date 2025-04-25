@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from ..models import Character
+from collector.models import Character
 from .conn import get_db_connection, get_db_path
 
 

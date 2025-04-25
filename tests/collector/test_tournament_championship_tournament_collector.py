@@ -1,6 +1,6 @@
 from collector.models import TournamentStage
 from collector.tournament_championship_collector import ChampionshipTournamentCollector
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 
 @keyboard_terminable()

@@ -9,7 +9,7 @@ from typing import List
 
 from collector.mouse_control import MouseController
 from collector.ui_def import GROUP_SELECTION
-from tests.utils import keyboard_terminable
+from tests.collector.utils import keyboard_terminable
 
 # Configure logging
 logging.basicConfig(

@@ -2,7 +2,6 @@ import pytest
 
 from collector.battle_data_collector import BattleDataCollector
 from collector.character_matcher import CharacterMatcher
-from collector.db.character_dao import CharacterDAO
 from collector.delay_manager import DelayManager
 from collector.group_processor import GroupProcessor
 from collector.image_detector import ImageDetector
@@ -20,6 +19,7 @@ from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager
 from collector.window_recorder import Quality, WindowRecorder
+from repository.character_dao import CharacterDAO
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ def championship_collector(capturer: WindowCapturer, controller: MouseController
 
 @pytest.fixture
 def player_collector(controller: MouseController, lineup_processor: LineupProcessor) -> Tournament64PlayerCollector:
-    return Tournament64PlayerCollector(controller, lineup_processor,"testdata/collector")
+    return Tournament64PlayerCollector(controller, lineup_processor, "testdata/collector")
 
 @pytest.fixture
 def group_processor(controller: MouseController,capturer: WindowCapturer,lineup_processor: LineupProcessor) -> GroupProcessor:
