@@ -1,6 +1,7 @@
 import os
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 import win32gui
@@ -219,6 +220,9 @@ class PickerApp(QObject):
                 logger.error("Failed to capture window content.")
                 return
 
+            # Save captured image for debugging
+            self._save_debug_image(window_pixmap)
+
             # Convert overlay coordinates to window coordinates
             # For most cases, they should be identical as we're overlaying exactly
             x = int(click_pos_overlay.x())
@@ -237,6 +241,23 @@ class PickerApp(QObject):
 
         except Exception as e:
             logger.exception(f"Error capturing pixel color: {e}")
+
+    def _save_debug_image(self, pixmap):
+        """Save the captured image for debugging purposes."""
+        try:
+            # Create debug directory if it doesn't exist
+            debug_dir = os.path.join(OUTPUT_DIR, "debug")
+            os.makedirs(debug_dir, exist_ok=True)
+
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            debug_filename = os.path.join(debug_dir, f"capture_{timestamp}.png")
+
+            # Save the image
+            pixmap.save(debug_filename)
+            logger.info(f"Debug image saved to {debug_filename}")
+        except Exception as e:
+            logger.exception(f"Failed to save debug image: {e}")
 
     @Slot(list)
     def update_status_label(self, points):
