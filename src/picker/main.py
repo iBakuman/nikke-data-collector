@@ -1,37 +1,20 @@
-import json
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
-# Ensure the collector package is discoverable
-# This might be needed if running the script directly, adjust as necessary
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-    print(f"Added {project_root} to sys.path")
+import win32gui
+from PySide6.QtCore import QPoint, Qt, Signal, Slot, QObject, QTimer
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
+from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton, QWidget, QToolBar)
+from dataclass_wizard.serial_json import JSONWizard, JSONPyWizard
 
-try:
-    import win32api
-    import win32con
-    import win32gui
-    from PySide6.QtCore import QPoint, Qt, Signal, Slot
-    from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
-    from PySide6.QtWidgets import (QApplication, QLabel, QMainWindow,
-                                   QMessageBox, QPushButton, QVBoxLayout,
-                                   QWidget)
-
-    from collector.logging_config import get_logger
-    from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
-    from collector.window_capturer import WindowCapturer
-    from collector.window_manager import (WindowManager,
-                                          WindowNotFoundException,
-                                          get_window_rect)
-except ImportError as e:
-    print(f"Error importing modules: {e}")
-    print(
-        "Please ensure PySide6 and pywin32 are installed (`pip install PySide6 pywin32 psutil mss`) and the project structure is correct.")
-    sys.exit(1)
+from collector.logging_config import get_logger
+from collector.mixin import JSONSerializableMixin
+from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
+from collector.window_capturer import WindowCapturer
+from collector.window_manager import (WindowManager,
+                                      get_window_rect)
 
 logger = get_logger(__name__)
 
@@ -39,8 +22,6 @@ NIKKE_PROCESS_NAME = "nikke.exe"  # Adjust if your process name is different
 OUTPUT_DIR = "output"
 SCREENSHOT_FILENAME = os.path.join(OUTPUT_DIR, "screenshot.png")
 CLICKS_FILENAME = os.path.join(OUTPUT_DIR, "clicks.json")
-
-PointData = Dict[str, int]  # {'x': int, 'y': int, 'r': int, 'g': int, 'b': int}
 
 
 class OverlayWidget(QWidget):
@@ -91,85 +72,65 @@ class OverlayWidget(QWidget):
             painter.drawEllipse(QPoint(x, y), 3, 3)
 
 
-class PickerApp(QMainWindow):
+@dataclass
+class Coordinate(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
+
+    x: float
+    y: float
+    color: Tuple[int, int, int]
+
+    def to_tuple(self) -> Tuple[int, int, Tuple[int, int, int]]:
+        return int(self.x), int(self.y), self.color
+
+class Coordinates(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
+
+    coordinates: List[Coordinate] = None
+
+    def add(self, coordinate: Coordinate):
+        self.coordinates.append(coordinate)
+
+    def to_list(self) -> List[Tuple[int, int, Tuple[int, int, int]]]:
+        return [coordinate.to_tuple() for coordinate in self.coordinates]
+
+    def __len__(self) -> int:
+        return len(self.coordinates)
+
+
+# noinspection PyBroadException
+class PickerApp(QObject):
     def __init__(self):
         super().__init__()
-        self.wm: Optional[WindowManager] = None
-        self.wc: Optional[WindowCapturer] = None
         self.nikke_hwnd: Optional[int] = None
         self.overlay: Optional[OverlayWidget] = None
-        self.collected_points: List[Tuple[int, int, Tuple[int, int, int]]] = []  # (x, y, (r, g, b))
+        self.toolbar: Optional[QToolBar] = None
+        self.collected_points: Coordinates = Coordinates()
         self.status_label: Optional[QLabel] = None  # Initialize here
         self.window_check_timer = None  # Initialize timer ID
-
-        if not self._initialize_window_manager():
-            # Attempt to show message box even if full app init fails
-            if 'QMessageBox' not in globals():  # Check if import succeeded
-                print("CRITICAL: Cannot show message box, QMessageBox not imported.")
-            else:
-                # We need a QApplication instance to show a QMessageBox *before* the main app object is fully ready or runs
-                # This is a bit tricky. For simplicity, we rely on the calling code (main) to handle this.
-                # The message is shown in _initialize_window_manager if QMessageBox is available.
-                pass
-            # Ensure we don't proceed if initialization failed
-            # We can't fully rely on the PickerApp instance existing if __init__ fails early.
-            # The main function already handles exiting if self.wm is None.
-            return
-
-        self._initialize_window_capturer()
+        self.wm: Optional[WindowManager] = None
+        self._initialize_window_manager()
+        self.wc = WindowCapturer(self.wm)
         self.init_ui()
-        # Check if init_ui failed (e.g., couldn't get rect)
-        if not self.centralWidget():  # A basic check if UI setup likely failed
-            logger.error("UI Initialization seems to have failed. Cannot start window tracking.")
-            return
-        self._start_tracking_window()
+        self.timer = QTimer()
+        self.timer.setInterval(250)
+        self.timer.timeout.connect(self.update_overlay_position())
+        self.timer.start()
 
-    def _initialize_window_manager(self) -> bool:
+    def _initialize_window_manager(self):
         """Initialize the WindowManager and find the target window."""
-        try:
-            logger.info(f"Attempting to find window for process: {NIKKE_PROCESS_NAME}")
-            # Use provided standard dimensions or fallback
-            self.wm = WindowManager(
-                NIKKE_PROCESS_NAME,
-                standard_width=STANDARD_WINDOW_WIDTH,
-                standard_height=STANDARD_WINDOW_HEIGHT,
-                exact_match=True
-            )
-            self.nikke_hwnd = self.wm.get_hwnd()
-            logger.info(f"Found Nikke window. HWND: {self.nikke_hwnd}")
-            return True
-        except WindowNotFoundException:
-            error_msg = f"'{NIKKE_PROCESS_NAME}' window not found.\nPlease ensure the game is running."
-            logger.error(error_msg)
-            # Check if QMessageBox was imported before trying to use it
-            if 'QMessageBox' in globals():
-                QMessageBox.critical(None, "Error", error_msg)
-            else:
-                print(f"CRITICAL ERROR: {error_msg}")  # Fallback to console
-            return False
-        except Exception as e:
-            error_msg = f"An unexpected error occurred during WindowManager initialization: {e}"
-            logger.exception("An unexpected error occurred during WindowManager initialization.")
-            if 'QMessageBox' in globals():
-                QMessageBox.critical(None, "Error", error_msg)
-            else:
-                print(f"CRITICAL ERROR: {error_msg}")  # Fallback to console
-            return False
-
-    def _initialize_window_capturer(self):
-        """Initialize the WindowCapturer."""
-        if self.wm:
-            self.wc = WindowCapturer(self.wm)
-            logger.info("WindowCapturer initialized.")
-
-    def _start_tracking_window(self):
-        """Use a QTimer to periodically check if the window moved or resized."""
-        self.window_check_timer = self.startTimer(250)  # Check every 250ms
-
-    def timerEvent(self, event):
-        """Handle the timer event to check the window state."""
-        if event.timerId() == self.window_check_timer:
-            self.update_overlay_position()
+        logger.info(f"Attempting to find window for process: {NIKKE_PROCESS_NAME}")
+        # Use provided standard dimensions or fallback
+        self.wm = WindowManager(
+            NIKKE_PROCESS_NAME,
+            standard_width=STANDARD_WINDOW_WIDTH,
+            standard_height=STANDARD_WINDOW_HEIGHT,
+            exact_match=True
+        )
+        self.nikke_hwnd = self.wm.get_hwnd()
+        logger.info(f"Found Nikke window. HWND: {self.nikke_hwnd}")
 
     def update_overlay_position(self):
         """Check if the Nikke window moved/resized and update the overlay."""
@@ -179,9 +140,9 @@ class PickerApp(QMainWindow):
         try:
             if not win32gui.IsWindow(self.nikke_hwnd):
                 logger.warning("Nikke window handle is no longer valid. Stopping timer.")
-                self.killTimer(self.window_check_timer)
-                QMessageBox.warning(self, "Window Closed", "The Nikke window appears to have been closed.")
-                self.close()  # Optionally close the picker
+                self.toolbar.killTimer(self.window_check_timer)
+                QMessageBox.warning(self.toolbar, "Window Closed", "The Nikke window appears to have been closed.")
+                self.overlay.close()  # Optionally close the picker
                 return
 
             current_rect = get_window_rect(self.nikke_hwnd)
@@ -197,13 +158,10 @@ class PickerApp(QMainWindow):
 
             if current_pos != overlay_pos or current_size != overlay_size:
                 logger.info(f"Nikke window changed. Updating overlay geometry to {current_rect}")
-                self.overlay.setGeometry(current_rect[0], current_rect[1], current_size[0], current_size[1])
-                # Update the main window's position relative to the overlay/game window if needed
-                self.move(current_rect[0], current_rect[1] + current_size[1])  # Position controls below
-
-        except Exception as e:
+                self.toolbar.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height + 20, self.wm.width, 20)
+                self.overlay.setGeometry(self.wm.start_x, self.wm.start_y, self.wm.width, self.wm.height)
+        except Exception:
             logger.exception("Error checking/updating window position:")
-            self.killTimer(self.window_check_timer)  # Stop timer on error
 
     def init_ui(self):
         """Initialize the main application UI."""
@@ -211,37 +169,25 @@ class PickerApp(QMainWindow):
         if not self.wm or not self.nikke_hwnd:
             logger.error("Cannot initialize UI without WindowManager.")
             return
-
         self.init_overlay()
-        # --- Main Control Window ---
-        # Make the control window frameless and stay on top initially might be annoying,
-        # let's keep it as a normal window that can be interacted with.
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        # self.setAttribute(Qt.WindowType.WA_TranslucentBackground) # If making controls transparent too
+        self.init_toolbar()
 
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-
+    def init_toolbar(self):
+        self.toolbar = QToolBar()
+        self.toolbar.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.status_label = QLabel("Click on the game window overlay to capture points.")
-        layout.addWidget(self.status_label)
-
+        self.toolbar.addWidget(self.status_label)
         save_button = QPushButton("Save Data")
         save_button.clicked.connect(self.save_data)
-        layout.addWidget(save_button)
+        self.toolbar.addWidget(save_button)
 
         clear_button = QPushButton("Clear Points")
         clear_button.clicked.connect(self.clear_points)
-        layout.addWidget(clear_button)
-
-        self.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height, self.wm.width, 200)
-        logger.info(f"Control window geometry set to: {self.geometry()}")
-        logger.info("--- Control window.show() called ---")  # DEBUG
+        self.toolbar.addWidget(clear_button)
+        self.toolbar.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height + 20, self.wm.width, 20)
 
     def init_overlay(self):
-        # Create the overlay widget
         self.overlay = OverlayWidget()
-        # logger.info(f"--- Setting initial overlay geometry: {overlay_geom} ---") # DEBUG
         self.overlay.clicked.connect(self.handle_overlay_click)
         self.overlay.points_updated.connect(self.update_status_label)  # Connect signal
         self.overlay.setGeometry(self.wm.start_x, self.wm.start_y, self.wm.width, self.wm.height)
@@ -311,11 +257,10 @@ class PickerApp(QMainWindow):
             # Store the point relative to the overlay/client area top-left
             relative_x = click_pos_overlay.x()
             relative_y = click_pos_overlay.y()
-            self.collected_points.append((relative_x, relative_y, (r, g, b)))
+            self.collected_points.add(Coordinate(x=relative_x, y=relative_y, color=(r, g, b)))
             logger.info(f"Point captured: ({relative_x}, {relative_y}) -> RGB({r}, {g}, {b})")
-
             # Update the overlay to draw the new point
-            self.overlay.set_points(self.collected_points)
+            self.overlay.set_points(self.collected_points.to_list())
 
         except Exception as e:
             logger.exception(f"Error getting pixel color at {click_pos_screen}:")
@@ -335,79 +280,52 @@ class PickerApp(QMainWindow):
     def clear_points(self):
         """Clear all collected points."""
         logger.info("Clearing all collected points.")
-        self.collected_points = []
+        self.collected_points = Coordinates()
         if self.overlay:
-            self.overlay.set_points(self.collected_points)
-        # self.update_status_label([]) # Called by set_points -> points_updated signal
+            self.overlay.set_points(self.collected_points.to_list())
 
     @Slot()
     def save_data(self):
         """Save collected points to JSON and capture a screenshot."""
-        if not self.collected_points:
+        if not self.collected_points or len(self.collected_points) == 0:
             logger.warning("No points collected to save.")
-            QMessageBox.information(self, "No Data", "No points have been captured yet.")
+            QMessageBox.information(self.toolbar, "No Data", "No points have been captured yet.")
             return
-
-        if not self.wc:
-            logger.error("WindowCapturer not available, cannot save screenshot.")
-            QMessageBox.warning(self, "Error", "Screenshot capture is not available.")
-            # Decide whether to proceed with saving JSON only
-            # return
-
         os.makedirs(OUTPUT_DIR, exist_ok=True)
-
         # 1. Save screenshot
         screenshot_saved = False
-        if self.wc:
-            try:
-                logger.info(f"Capturing screenshot of Nikke window to {SCREENSHOT_FILENAME}...")
-                capture_result = self.wc.capture_window()
-                if capture_result:
-                    capture_result.save(SCREENSHOT_FILENAME)
-                    logger.info(f"Screenshot saved successfully to {SCREENSHOT_FILENAME}")
-                    screenshot_saved = True
-                else:
-                    logger.error("Failed to capture screenshot.")
-            except Exception as e:
-                logger.exception("Error capturing or saving screenshot:")
-                error_msg = f"Could not save screenshot:\n{e}"
-                QMessageBox.warning(self, "Screenshot Error", error_msg)
+        logger.info(f"Capturing screenshot of Nikke window to {SCREENSHOT_FILENAME}...")
+        capture_result = self.wc.capture_window()
+        if capture_result:
+            capture_result.save(SCREENSHOT_FILENAME)
+            logger.info(f"Screenshot saved successfully to {SCREENSHOT_FILENAME}")
+            screenshot_saved = True
+        else:
+            logger.error("Failed to capture screenshot.")
 
-        # 2. Save points to JSON
-        json_data = [
-            {"x": x, "y": y, "r": r, "g": g, "b": b}
-            for x, y, (r, g, b) in self.collected_points
-        ]
         try:
-            logger.info(f"Saving {len(json_data)} points to {CLICKS_FILENAME}...")
-            with open(CLICKS_FILENAME, 'w') as f:
-                json.dump(json_data, f, indent=4)
+            self.collected_points.save_as_json(CLICKS_FILENAME)
             logger.info(f"Points saved successfully to {CLICKS_FILENAME}")
-
-            # Show success message
             message = f"Data saved successfully!\nPoints: {CLICKS_FILENAME}"
             if screenshot_saved:
                 message += f"\nScreenshot: {SCREENSHOT_FILENAME}"
             elif self.wc:  # Only mention screenshot failure if wc was available
                 message += "\n(Screenshot capture failed)"
-
-            QMessageBox.information(self, "Save Successful", message)
-
+            QMessageBox.information(self.toolbar, "Save Successful", message)
         except Exception as e:
             logger.exception("Error saving points to JSON:")
-            # Format the error message for the dialog
             error_message = f"Could not save points data:\n{e}"
-            QMessageBox.critical(self, "JSON Save Error", error_message)
+            QMessageBox.critical(self.toolbar, "JSON Save Error", error_message)
 
-    def closeEvent(self, event):
-        """Ensure overlay is closed when main window closes."""
-        logger.info("Closing application...")
-        if self.overlay:
-            self.overlay.close()
-        # Stop the timer if it's running
-        if hasattr(self, 'window_check_timer') and self.window_check_timer:
-            self.killTimer(self.window_check_timer)
-        super().closeEvent(event)
+    # def closeEvent(self, event):
+    #     """Ensure overlay is closed when main window closes."""
+    #     logger.info("Closing application...")
+    #     if self.overlay:
+    #         self.overlay.close()
+    #     # Stop the timer if it's running
+    #     if hasattr(self, 'window_check_timer') and self.window_check_timer:
+    #         self.kill_timer(self.window_check_timer)
+    #     super().closeEvent(event)
 
 
 def main():
