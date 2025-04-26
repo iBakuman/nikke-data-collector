@@ -70,6 +70,9 @@ class OverlayWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
+        # DEBUG: Make overlay background slightly visible
+        painter.fillRect(self.rect(), QColor(0, 255, 0, 30)) # Semi-transparent green
+
         # Draw a thin border around the overlay (optional)
         # painter.setPen(QPen(QColor(0, 255, 0, 150), 1))
         # painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
@@ -205,6 +208,7 @@ class PickerApp(QMainWindow):
 
     def init_ui(self):
         """Initialize the main application UI."""
+        logger.info("--- Initializing UI ---") # DEBUG
         if not self.wm or not self.nikke_hwnd:
              logger.error("Cannot initialize UI without WindowManager.")
              return
@@ -217,10 +221,13 @@ class PickerApp(QMainWindow):
 
         # Create the overlay widget
         self.overlay = OverlayWidget()
-        self.overlay.setGeometry(nikke_rect[0], nikke_rect[1], nikke_rect[2] - nikke_rect[0], nikke_rect[3] - nikke_rect[1])
+        overlay_geom = (nikke_rect[0], nikke_rect[1], nikke_rect[2] - nikke_rect[0], nikke_rect[3] - nikke_rect[1])
+        logger.info(f"--- Setting initial overlay geometry: {overlay_geom} ---") # DEBUG
+        self.overlay.setGeometry(*overlay_geom)
         self.overlay.clicked.connect(self.handle_overlay_click)
         self.overlay.points_updated.connect(self.update_status_label) # Connect signal
         self.overlay.show()
+        logger.info("--- Overlay window.show() called ---") # DEBUG
 
         # --- Main Control Window ---
         self.setWindowTitle("Nikke Data Picker")
@@ -244,21 +251,28 @@ class PickerApp(QMainWindow):
         clear_button.clicked.connect(self.clear_points)
         layout.addWidget(clear_button)
 
-        # Position the control window below the game window
-        control_window_height = 100 # Adjust as needed
-        self.setGeometry(
-            nikke_rect[0],
-            nikke_rect[3], # Place it right below the game window
-            nikke_rect[2] - nikke_rect[0], # Match width
-            control_window_height
-        )
-        logger.info(f"Control window geometry set to: {self.geometry()}")
+        # DEBUG: Use fixed geometry temporarily
+        logger.info("Setting FIXED control window geometry for debugging.")
+        self.setGeometry(100, 100, 300, 150) # Fixed position (100,100) and size (300x150)
+
+        # Position the control window below the game window (Original code)
+        # control_window_height = 100 # Adjust as needed
+        # self.setGeometry(
+        #     nikke_rect[0],
+        #     nikke_rect[3], # Place it right below the game window
+        #     nikke_rect[2] - nikke_rect[0], # Match width
+        #     control_window_height
+        # )
+        # logger.info(f"Control window geometry set to: {self.geometry()}")
+
         self.show()
+        logger.info("--- Control window.show() called ---") # DEBUG
 
 
     @Slot(QMouseEvent)
     def handle_overlay_click(self, event: QMouseEvent):
         """Handle clicks on the overlay."""
+        logger.info("--- handle_overlay_click called --- ") # DEBUG
         if not self.nikke_hwnd:
             logger.warning("Nikke HWND not available, cannot process click.")
             return
