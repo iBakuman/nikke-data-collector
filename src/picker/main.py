@@ -236,7 +236,6 @@ class PickerApp(QMainWindow):
 
         self.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height, self.wm.width, 200)
         logger.info(f"Control window geometry set to: {self.geometry()}")
-        self.show()
         logger.info("--- Control window.show() called ---")  # DEBUG
 
     def init_overlay(self):
