@@ -10,7 +10,7 @@ from .conditions import (ElementCondition, MultiCondition, StateCondition,
                          WaitCondition)
 from .context import AutomationContext, Result
 from .controller import AutomationController
-from .elements import ImageElement, PixelElement, TextElement, UIElement
+from .elements import ImageElement, TextElement, UIElement
 # Import and re-export main components for easy access
 from .enums import CollectorType, ElementKey, RegionKey, StateType, StepId
 from .regions import FixedRegion, Region, RelativeRegion
@@ -23,7 +23,7 @@ __all__ = [
     'StateType', 'RegionKey', 'ElementKey', 'StepId', 'CollectorType',
 
     # Elements
-    'UIElement', 'PixelElement', 'TextElement', 'ImageElement',
+    'UIElement', 'TextElement', 'ImageElement',
 
     # Regions
     'Region', 'FixedRegion', 'RelativeRegion',

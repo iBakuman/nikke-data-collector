@@ -78,7 +78,7 @@ class AutomationController:
         except Exception as e:
             return Result.failure(f"Screenshot capture failed: {str(e)}")
     
-    def detect_state(self) -> Result[Optional[StateType]]:
+    def detect_state(self) -> Result[StateType]:
         """Detect the current screen state.
         
         Returns:
