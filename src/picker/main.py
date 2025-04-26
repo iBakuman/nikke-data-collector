@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 import win32gui
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PySide6.QtCore import QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton,
                                QToolBar, QWidget)
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.mixin import JSONSerializableMixin
