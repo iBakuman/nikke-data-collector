@@ -49,9 +49,9 @@ class OverlayWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.setCursor(Qt.CrossCursor) # Use crosshair cursor
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setCursor(Qt.CursorShape.CrossCursor) # Use crosshair cursor
         self._points: List[Tuple[int, int, Tuple[int, int, int]]] = [] # Store as (x, y, (r, g, b))
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -68,7 +68,7 @@ class OverlayWidget(QWidget):
     def paintEvent(self, event):
         """Draw captured points on the overlay."""
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # DEBUG: Make overlay background slightly visible
         painter.fillRect(self.rect(), QColor(0, 255, 0, 30)) # Semi-transparent green
@@ -81,11 +81,11 @@ class OverlayWidget(QWidget):
         for x, y, (r, g, b) in self._points:
             # Draw outer circle (e.g., white)
             painter.setPen(QPen(QColor(255, 255, 255), 2))
-            painter.setBrush(Qt.NoBrush)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(QPoint(x, y), 5, 5)
 
             # Draw inner circle with the captured color
-            painter.setPen(Qt.NoPen)
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(r, g, b))
             painter.drawEllipse(QPoint(x, y), 3, 3)
 
