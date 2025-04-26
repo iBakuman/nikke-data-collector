@@ -6,9 +6,8 @@ screen regions - rectangular areas of the screen used for capturing, analyzing,
 and detecting UI elements.
 """
 
-from dataclasses import dataclass
-from typing import (Any, Callable, Dict, Generic, List, Optional, Protocol,
-                    Tuple, TypeVar)
+from typing import (Callable, Dict, Optional, Protocol,
+                    Tuple)
 
 import numpy as np
 from PIL import Image
@@ -22,7 +21,7 @@ Point = Tuple[int, int]  # x, y
 
 class ScreenCaptureProvider(Protocol):
     """Protocol for providing screen captures."""
-    
+
     def get_screenshot(self) -> Image.Image:
         """
         Get a screenshot of the current screen.
@@ -40,7 +39,7 @@ class Region:
     A region represents a rectangular area of the screen that can be captured,
     analyzed, and used for detecting UI elements.
     """
-    
+
     def __init__(self, name: str = ""):
         """
         Initialize a Region.
@@ -49,7 +48,7 @@ class Region:
             name: A descriptive name for the region
         """
         self.name = name
-    
+
     def get_bounds(self) -> Bounds:
         """
         Get the bounds of the region.
@@ -58,7 +57,7 @@ class Region:
             Bounds: (left, top, right, bottom) coordinates
         """
         raise NotImplementedError("Subclasses must implement get_bounds()")
-    
+
     def capture(self, provider: ScreenCaptureProvider) -> Image.Image:
         """
         Capture the region from the screen.
@@ -72,7 +71,7 @@ class Region:
         bounds = self.get_bounds()
         screenshot = provider.get_screenshot()
         return screenshot.crop(bounds)
-    
+
     def capture_to_array(self, provider: ScreenCaptureProvider) -> np.ndarray:
         """
         Capture the region and convert to numpy array.
@@ -85,7 +84,7 @@ class Region:
         """
         img = self.capture(provider)
         return np.array(img)
-    
+
     def contains_point(self, point: Point) -> bool:
         """
         Check if the region contains the given point.
@@ -99,7 +98,7 @@ class Region:
         left, top, right, bottom = self.get_bounds()
         x, y = point
         return (left <= x <= right) and (top <= y <= bottom)
-    
+
     def relative_to_absolute(self, rel_x: float, rel_y: float) -> Point:
         """
         Convert relative coordinates within the region to absolute screen coordinates.
@@ -114,12 +113,12 @@ class Region:
         left, top, right, bottom = self.get_bounds()
         width = right - left
         height = bottom - top
-        
+
         abs_x = left + int(width * rel_x)
         abs_y = top + int(height * rel_y)
-        
-        return (abs_x, abs_y)
-    
+
+        return abs_x, abs_y
+
     def absolute_to_relative(self, abs_x: int, abs_y: int) -> Tuple[float, float]:
         """
         Convert absolute screen coordinates to relative coordinates within the region.
@@ -134,15 +133,15 @@ class Region:
         left, top, right, bottom = self.get_bounds()
         width = right - left
         height = bottom - top
-        
+
         if width == 0 or height == 0:
-            return (0.0, 0.0)
-        
+            return 0.0, 0.0
+
         rel_x = (abs_x - left) / width
         rel_y = (abs_y - top) / height
-        
-        return (rel_x, rel_y)
-    
+
+        return rel_x, rel_y
+
     def __repr__(self) -> str:
         """String representation of the region."""
         bounds = self.get_bounds()
@@ -156,7 +155,7 @@ class FixedRegion(Region):
     These bounds are defined by absolute pixel coordinates and don't change
     regardless of screen size or resolution.
     """
-    
+
     def __init__(self, left: int, top: int, right: int, bottom: int, name: str = ""):
         """
         Initialize a FixedRegion with absolute coordinates.
@@ -170,7 +169,7 @@ class FixedRegion(Region):
         """
         super().__init__(name)
         self._bounds = (left, top, right, bottom)
-    
+
     def get_bounds(self) -> Bounds:
         """
         Get the fixed bounds of the region.
@@ -179,7 +178,7 @@ class FixedRegion(Region):
             Bounds: (left, top, right, bottom) coordinates
         """
         return self._bounds
-    
+
     def update_bounds(self, left: int, top: int, right: int, bottom: int) -> None:
         """
         Update the fixed bounds of the region.
@@ -200,16 +199,16 @@ class RelativeRegion(Region):
     The bounds are specified as percentages (0.0 to 1.0) of the screen dimensions.
     This allows the region to adapt to different screen sizes and resolutions.
     """
-    
+
     def __init__(
-        self, 
-        rel_left: float, 
-        rel_top: float, 
-        rel_right: float, 
-        rel_bottom: float, 
-        screen_width: int, 
-        screen_height: int, 
-        name: str = ""
+            self,
+            rel_left: float,
+            rel_top: float,
+            rel_right: float,
+            rel_bottom: float,
+            screen_width: int,
+            screen_height: int,
+            name: str = ""
     ):
         """
         Initialize a RelativeRegion with relative coordinates.
@@ -230,7 +229,7 @@ class RelativeRegion(Region):
         self.rel_bottom = rel_bottom
         self.screen_width = screen_width
         self.screen_height = screen_height
-    
+
     def get_bounds(self) -> Bounds:
         """
         Calculate the absolute bounds based on relative coordinates.
@@ -242,9 +241,9 @@ class RelativeRegion(Region):
         top = int(self.rel_top * self.screen_height)
         right = int(self.rel_right * self.screen_width)
         bottom = int(self.rel_bottom * self.screen_height)
-        
-        return (left, top, right, bottom)
-    
+
+        return left, top, right, bottom
+
     def update_screen_size(self, screen_width: int, screen_height: int) -> None:
         """
         Update the screen dimensions used for calculating absolute bounds.
@@ -264,11 +263,11 @@ class DynamicRegion(Region):
     The bounds are calculated by a provided function, which allows for complex
     logic to determine the region's position and size.
     """
-    
+
     def __init__(
-        self, 
-        bounds_function: Callable[[], Bounds], 
-        name: str = ""
+            self,
+            bounds_function: Callable[[], Bounds],
+            name: str = ""
     ):
         """
         Initialize a DynamicRegion with a function to calculate bounds.
@@ -279,7 +278,7 @@ class DynamicRegion(Region):
         """
         super().__init__(name)
         self.bounds_function = bounds_function
-    
+
     def get_bounds(self) -> Bounds:
         """
         Calculate the bounds using the provided function.
@@ -288,7 +287,7 @@ class DynamicRegion(Region):
             Bounds: (left, top, right, bottom) coordinates
         """
         return self.bounds_function()
-    
+
     def update_bounds_function(self, bounds_function: Callable[[], Bounds]) -> None:
         """
         Update the function used to calculate bounds.
@@ -306,11 +305,11 @@ class RegionManager:
     This class provides methods for registering, retrieving, and capturing
     regions by their keys.
     """
-    
+
     def __init__(self):
         """Initialize an empty region manager."""
         self.regions: Dict[RegionKey, Region] = {}
-    
+
     def register_region(self, key: RegionKey, region: Region) -> None:
         """
         Register a region with the specified key.
@@ -320,7 +319,7 @@ class RegionManager:
             region: The region to register
         """
         self.regions[key] = region
-    
+
     def get_region(self, key: RegionKey) -> Optional[Region]:
         """
         Get a region by its key.
@@ -332,11 +331,11 @@ class RegionManager:
             Optional[Region]: The region or None if not found
         """
         return self.regions.get(key)
-    
+
     def capture_region(
-        self, 
-        key: RegionKey, 
-        provider: ScreenCaptureProvider
+            self,
+            key: RegionKey,
+            provider: ScreenCaptureProvider
     ) -> Optional[Image.Image]:
         """
         Capture a specific region by its key.
@@ -352,10 +351,10 @@ class RegionManager:
         if region:
             return region.capture(provider)
         return None
-    
+
     def capture_all_regions(
-        self, 
-        provider: ScreenCaptureProvider
+            self,
+            provider: ScreenCaptureProvider
     ) -> Dict[RegionKey, Image.Image]:
         """
         Capture all registered regions.
@@ -370,7 +369,7 @@ class RegionManager:
         for key, region in self.regions.items():
             result[key] = region.capture(provider)
         return result
-    
+
     def get_all_regions(self) -> Dict[RegionKey, Region]:
         """
         Get all registered regions.
@@ -393,25 +392,25 @@ def setup_default_regions(screen_width: int, screen_height: int) -> RegionManage
         RegionManager: A manager configured with default regions
     """
     manager = RegionManager()
-    
+
     # Register full screen region
     full_screen = FixedRegion(0, 0, screen_width, screen_height, "Full Screen")
     manager.register_region(RegionKey.FULL_SCREEN, full_screen)
-    
+
     # Register header region (top 10% of screen)
     header = RelativeRegion(0.0, 0.0, 1.0, 0.1, screen_width, screen_height, "Header")
     manager.register_region(RegionKey.HEADER, header)
-    
+
     # Register footer region (bottom 10% of screen)
     footer = RelativeRegion(0.0, 0.9, 1.0, 1.0, screen_width, screen_height, "Footer")
     manager.register_region(RegionKey.FOOTER, footer)
-    
+
     # Register main content region (middle 80% of screen)
     content = RelativeRegion(0.0, 0.1, 1.0, 0.9, screen_width, screen_height, "Main Content")
     manager.register_region(RegionKey.MAIN_CONTENT, content)
-    
+
     # Register side menu region (left 20% of screen)
     side_menu = RelativeRegion(0.0, 0.1, 0.2, 0.9, screen_width, screen_height, "Side Menu")
     manager.register_region(RegionKey.SIDE_MENU, side_menu)
-    
-    return manager 
+
+    return manager

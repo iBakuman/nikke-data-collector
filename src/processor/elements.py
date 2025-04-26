@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Protocol, Tuple, TypeVar, Union
 
 import cv2
 import numpy as np
-
+from PIL import Image
 from .enums import ElementType
 
 # Type definitions
@@ -32,7 +32,7 @@ class ScreenCaptureProvider(Protocol):
 
     def get_screenshot(self) -> np.ndarray:
         """Get a screenshot of the game window.
-        
+
         Returns:
             np.ndarray: BGR image of the game window
         """
@@ -67,7 +67,7 @@ class UIElement(ABC):
             region: Optional[Bounds] = None,
     ):
         """Initialize a UI element.
-        
+
         Args:
             name: Unique name for the element
             element_type: Type of the element
@@ -79,41 +79,41 @@ class UIElement(ABC):
         self.logger = logging.getLogger(f"UIElement.{name}")
 
     @abstractmethod
-    def detect(self, screenshot: np.ndarray) -> DetectionResult:
+    def detect(self, screenshot: Image.Image) -> DetectionResult:
         """Detect this element in the given screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             DetectionResult: Detection result with bounds if found
         """
         pass
 
-    def is_visible(self, screenshot: np.ndarray) -> bool:
+    def is_visible(self, screenshot: Image.Image) -> bool:
         """Check if this element is visible in the screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             bool: True if the element is visible
         """
         result = self.detect(screenshot)
         return result.found
 
-    def get_region_from_screenshot(self, screenshot: np.ndarray) -> np.ndarray:
+    def get_region_from_screenshot(self, screenshot: Image.Image) -> Image.Image:
         """Extract the region of interest from the screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             np.ndarray: Region of interest from the screenshot
         """
         if self.region:
             x, y, w, h = self.region
-            return screenshot[y:y + h, x:x + w]
+            return screenshot.crop((x, y, x + w, y + h))
         return screenshot
 
 
@@ -130,7 +130,7 @@ class ImageElement(UIElement):
             method: int = cv2.TM_CCOEFF_NORMED,
     ):
         """Initialize an image element.
-        
+
         Args:
             name: Unique name for the element
             template_path: Path to the template image
@@ -146,7 +146,7 @@ class ImageElement(UIElement):
         self._template: Optional[np.ndarray] = None
 
     @property
-    def template(self) -> np.ndarray:
+    def template(self) -> Image.Image:
         """Load the template image lazily."""
         if self._template is None:
             if not self.template_path.exists():
@@ -160,12 +160,12 @@ class ImageElement(UIElement):
 
         return self._template
 
-    def detect(self, screenshot: np.ndarray) -> DetectionResult:
+    def detect(self, screenshot: Image.Image) -> DetectionResult:
         """Detect this element in the given screenshot using template matching.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             DetectionResult: Detection result with bounds if found
         """
@@ -225,7 +225,7 @@ class PixelColorElement(UIElement):
             match_all: bool = True,
     ):
         """Initialize a pixel color element.
-        
+
         Args:
             name: Unique name for the element
             element_type: Type of the element
@@ -239,12 +239,12 @@ class PixelColorElement(UIElement):
         self.tolerance = tolerance
         self.match_all = match_all
 
-    def detect(self, screenshot: np.ndarray) -> DetectionResult:
+    def detect(self, screenshot: Image.Image) -> DetectionResult:
         """Detect this element by checking pixel colors in the screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             DetectionResult: Detection result
         """
@@ -307,7 +307,7 @@ class TextElement(UIElement):
             exact_match: bool = False,
     ):
         """Initialize a text element.
-        
+
         Args:
             name: Unique name for the element
             text: Text to search for
@@ -321,12 +321,12 @@ class TextElement(UIElement):
         self.case_sensitive = case_sensitive
         self.exact_match = exact_match
 
-    def detect(self, screenshot: np.ndarray) -> DetectionResult:
+    def detect(self, screenshot: Image.Image) -> DetectionResult:
         """Detect this element by finding text in the screenshot using OCR.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             DetectionResult: Detection result with bounds if found
         """
@@ -361,7 +361,7 @@ class ElementManager:
 
     def register(self, element: UIElement) -> None:
         """Register an element with the manager.
-        
+
         Args:
             element: UI element to register
         """
@@ -373,10 +373,10 @@ class ElementManager:
 
     def get(self, name: str) -> Optional[UIElement]:
         """Get an element by name.
-        
+
         Args:
             name: Name of the element
-            
+
         Returns:
             UIElement or None: The element if found, None otherwise
         """
@@ -384,21 +384,21 @@ class ElementManager:
 
     def get_by_type(self, element_type: ElementType) -> List[UIElement]:
         """Get all elements of a specific type.
-        
+
         Args:
             element_type: Type of elements to get
-            
+
         Returns:
             List[UIElement]: List of elements of the specified type
         """
         return [e for e in self.elements.values() if e.element_type == element_type]
 
-    def detect_all(self, screenshot: np.ndarray) -> Dict[str, DetectionResult]:
+    def detect_all(self, screenshot: Image.Image) -> Dict[str, DetectionResult]:
         """Detect all registered elements in the screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
-            
+
         Returns:
             Dict[str, DetectionResult]: Dictionary mapping element names to detection results
         """
@@ -409,15 +409,15 @@ class ElementManager:
 
     def detect_by_type(
             self,
-            screenshot: np.ndarray,
+            screenshot: Image.Image,
             element_type: ElementType
     ) -> Dict[str, DetectionResult]:
         """Detect all elements of a specific type in the screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
             element_type: Type of elements to detect
-            
+
         Returns:
             Dict[str, DetectionResult]: Dictionary mapping element names to detection results
         """
@@ -429,15 +429,15 @@ class ElementManager:
 
     def detect_in_region(
             self,
-            screenshot: np.ndarray,
+            screenshot: Image.Image,
             region: Bounds
     ) -> Dict[str, DetectionResult]:
         """Detect all elements within a specific region in the screenshot.
-        
+
         Args:
             screenshot: BGR image of the game window
             region: Region to check (x, y, width, height)
-            
+
         Returns:
             Dict[str, DetectionResult]: Dictionary mapping element names to detection results
         """
