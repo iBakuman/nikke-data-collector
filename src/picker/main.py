@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import win32gui
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PySide6.QtCore import QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton,
                                QToolBar, QWidget)
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.mixin import JSONSerializableMixin
@@ -201,79 +201,42 @@ class PickerApp(QObject):
     @Slot(QMouseEvent)
     def handle_overlay_click(self, event: QMouseEvent):
         """Handle clicks on the overlay."""
-        logger.info("--- handle_overlay_click called --- ")  # DEBUG
+        logger.info("--- handle_overlay_click called --- ")
         if not self.nikke_hwnd:
             logger.warning("Nikke HWND not available, cannot process click.")
             return
 
-        click_pos_overlay = event.position()  # Position relative to the overlay widget
-        # Convert overlay position to screen coordinates
-        click_pos_screen = self.overlay.mapToGlobal(click_pos_overlay)
+        # Get click position relative to the overlay
+        click_pos_overlay = event.position()
+        logger.debug(f"Overlay clicked at: {click_pos_overlay}")
 
-        logger.debug(f"Overlay clicked at: {click_pos_overlay}, Screen coords: {click_pos_screen}")
-
-        hwnd_dc = None  # Initialize here
         try:
-            # Get the Device Context (DC) for the Nikke window
-            # Using GetWindowDC includes the frame, GetDC might be client area only? Test this.
-            # Let's try GetDC first as we want the client area color.
-            # hwnd_dc = win32gui.GetWindowDC(self.nikke_hwnd) # Gets DC for the whole window (incl. frame)
-            hwnd_dc = win32gui.GetDC(self.nikke_hwnd)  # Gets DC for the client area
+            # Capture the window content at the current moment
+            screen = QApplication.primaryScreen()
+            window_pixmap = screen.grabWindow(self.nikke_hwnd)
 
-            if not hwnd_dc:
-                logger.error("Failed to get Device Context for Nikke window.")
+            if window_pixmap.isNull():
+                logger.error("Failed to capture window content.")
                 return
 
-            # Get the pixel color at the screen coordinates
-            # Note: GetPixel expects coordinates relative to the DC's origin.
-            # For GetDC(hwnd), origin is the top-left of the client area.
-            # For GetWindowDC(hwnd), origin is top-left of the window (incl. frame).
-            # We need coords relative to the client area top-left.
-            client_rect = win32gui.GetClientRect(self.nikke_hwnd)  # (0, 0, width, height)
-            screen_top_left = win32gui.ClientToScreen(self.nikke_hwnd, (client_rect[0], client_rect[1]))
+            # Convert overlay coordinates to window coordinates
+            # For most cases, they should be identical as we're overlaying exactly
+            x = int(click_pos_overlay.x())
+            y = int(click_pos_overlay.y())
 
-            # Calculate click position relative to client area top-left
-            click_x_client = int(click_pos_screen.x() - screen_top_left[0])
-            click_y_client = int(click_pos_screen.y() - screen_top_left[1])
+            # Get pixel color at clicked position
+            pixel_color = window_pixmap.toImage().pixelColor(x, y)
+            r, g, b = pixel_color.red(), pixel_color.green(), pixel_color.blue()
 
-            # Check if click is within the client area bounds
-            client_width = client_rect[2] - client_rect[0]
-            client_height = client_rect[3] - client_rect[1]
-            if not (0 <= click_x_client < client_width and 0 <= click_y_client < client_height):
-                logger.warning(
-                    f"Click ({click_x_client}, {click_y_client}) is outside the client area ({client_width}x{client_height}). Skipping.")
-                win32gui.ReleaseDC(self.nikke_hwnd, hwnd_dc)
-                return
+            # Store the captured point
+            self.collected_points.add(Coordinate(x=x, y=y, color=(r, g, b)))
+            logger.info(f"Point captured: ({x}, {y}) -> RGB({r}, {g}, {b})")
 
-            color_ref = win32gui.GetPixel(hwnd_dc, click_x_client, click_y_client)
-            win32gui.ReleaseDC(self.nikke_hwnd, hwnd_dc)  # Release the DC!
-
-            if color_ref == -1:  # Error checking
-                logger.error(
-                    f"GetPixel failed at screen coordinates {click_pos_screen} (Client: {click_x_client}, {click_y_client}). Is the window obscured?")
-                return
-
-            # Convert COLORREF (BGR) to RGB
-            r = color_ref & 0xff
-            g = (color_ref >> 8) & 0xff
-            b = (color_ref >> 16) & 0xff
-
-            # Store the point relative to the overlay/client area top-left
-            relative_x = click_pos_overlay.x()
-            relative_y = click_pos_overlay.y()
-            self.collected_points.add(Coordinate(x=relative_x, y=relative_y, color=(r, g, b)))
-            logger.info(f"Point captured: ({relative_x}, {relative_y}) -> RGB({r}, {g}, {b})")
             # Update the overlay to draw the new point
             self.overlay.set_points(self.collected_points.to_list())
 
         except Exception as e:
-            logger.exception(f"Error getting pixel color at {click_pos_screen}:")
-            # Ensure DC is released even if error occurs after getting it
-            if 'hwnd_dc' in locals() and hwnd_dc:
-                try:
-                    win32gui.ReleaseDC(self.nikke_hwnd, hwnd_dc)
-                except Exception as release_e:
-                    logger.error(f"Error releasing DC: {release_e}")
+            logger.exception(f"Error capturing pixel color: {e}")
 
     @Slot(list)
     def update_status_label(self, points):
