@@ -18,12 +18,13 @@ dependencies = [
   "pyside6 (>=6.9.0,<7.0.0)",
   "dependency-injector (>=4.46.0,<5.0.0)",
   "appdirs (>=1.4.4,<2.0.0)",
+  "pyqtdarktheme (>=2.1.0,<3.0.0)",
 ]
 description = "A tool for Nikke: Goddess of Victory data collection"
 license = {text = "MIT"}
 name = "nikke-data-collector"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.12"
 version = "1.0.2"
 
 [tool.poetry]

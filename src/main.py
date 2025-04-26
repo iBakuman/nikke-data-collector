@@ -10,6 +10,7 @@ import time
 from typing import Union
 
 import keyboard
+import qdarktheme
 from PySide6.QtCore import QLocale, QTranslator
 from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QMainWindow,
@@ -18,7 +19,6 @@ from PySide6.QtWidgets import (QApplication, QDialog, QHBoxLayout, QMainWindow,
 
 from about import AboutWindow
 from admin_helper import is_admin
-from config_manager import ConfigManager
 from collector import CharacterDAO
 from collector.character_matcher import CharacterMatcher
 from collector.delay_manager import DelayManager
@@ -36,7 +36,7 @@ from collector.tournament_championship_collector import \
 from collector.tournament_promotion_collector import PromotionDataCollector
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, WindowNotFoundException
-from theme import set_app_theme
+from config_manager import ConfigManager
 from ui.main import Ui_MainWindow
 from ui.path_selector import PathSelector
 from ui.time_warning_dialog import TimeWarningDialog
@@ -436,10 +436,10 @@ class App:
         """Initialize the main application"""
         # Create application
         self.app = QApplication([])
+        qdarktheme.setup_theme()
         # Store app instance for easy access from other parts of the program
         self.app.parent_app = self
-        set_app_theme(self.app)
-
+        # set_app_theme(self.app)
         # Load translations based on system locale or saved preference
         self.config_manager = ConfigManager()
         self.translator = QTranslator()
