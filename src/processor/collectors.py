@@ -6,7 +6,7 @@ such as text via OCR, numbers, and images.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, Type, TypeVar
+from typing import Generic, TypeVar
 
 from PIL import Image
 
