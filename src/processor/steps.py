@@ -190,11 +190,11 @@ class WaitStep(AutomationStep):
         start_time = time.time()
         elapsed = 0
 
+        errors = []
         while elapsed < self.timeout:
             # Check each condition
             all_met = True
             any_met = False
-            errors = []
 
             for condition in self.conditions:
                 result = condition.check(context, screenshot)

@@ -7,7 +7,7 @@ results throughout the automation process.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, Optional, TypeVar
 
 from PIL import Image
 
@@ -78,7 +78,7 @@ class AutomationContext:
         """Add a captured image to the context.
         
         Args:
-            key: Unique identifier for the image
+            key: Unique identifier for the image.
             image: The captured image
         """
         self.captured_images[key] = image

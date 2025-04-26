@@ -110,16 +110,15 @@ class ElementCondition(AutomationCondition):
 
         # Check each element
         for element in self.elements:
-            result = element.is_visible(screenshot)
-            elements_match = result.success and result.data == self.should_exist
-            results[element] = elements_match
+            presence = element.is_visible(screenshot)
+            results[element] = element.is_visible(screenshot)
 
             # Early return if using any_must_match and we found a match
-            if not self.all_must_match and elements_match:
+            if not self.all_must_match and presence:
                 return Result.success(True)
 
             # Early return if using all_must_match and we found a non-match
-            if self.all_must_match and not elements_match:
+            if self.all_must_match and not presence:
                 return Result.success(False)
 
         # If all_must_match, all elements must match
