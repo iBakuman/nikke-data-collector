@@ -4,17 +4,17 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import win32gui
-from PySide6.QtCore import QPoint, Qt, Signal, Slot, QObject, QTimer
+from PySide6.QtCore import QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
-from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton, QWidget, QToolBar)
-from dataclass_wizard.serial_json import JSONWizard, JSONPyWizard
+from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton,
+                               QToolBar, QWidget)
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.mixin import JSONSerializableMixin
 from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
 from collector.window_capturer import WindowCapturer
-from collector.window_manager import (WindowManager,
-                                      get_window_rect)
+from collector.window_manager import WindowManager, get_window_rect
 
 logger = get_logger(__name__)
 
@@ -32,12 +32,19 @@ class OverlayWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
+                           Qt.WindowType.WindowStaysOnTopHint |
+                           Qt.WindowType.Tool |
+                           Qt.WindowType.BypassWindowManagerHint)  # Add bypass hint
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setMouseTracking(True)  # Enable mouse tracking
         # self.setCursor(Qt.CursorShape.CrossCursor)  # Use crosshair cursor
         self._points: List[Tuple[int, int, Tuple[int, int, int]]] = []  # Store as (x, y, (r, g, b))
 
     def mousePressEvent(self, event: QMouseEvent):
         """Emit signal when clicked."""
+        logger.info(f"OverlayWidget received mouse press at {event.position()}")  # Add debug logging
         self.clicked.emit(event)
         super().mousePressEvent(event)
 
@@ -52,12 +59,8 @@ class OverlayWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # DEBUG: Make overlay background slightly visible
-        painter.fillRect(self.rect(), QColor(0, 255, 0, 30))  # Semi-transparent green
-
-        # Draw a thin border around the overlay (optional)
-        # painter.setPen(QPen(QColor(0, 255, 0, 150), 1))
-        # painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        # Fill with almost completely transparent color (1% opacity)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 1))  # Nearly invisible (1/255 opacity)
 
         # Draw circles at clicked points
         for x, y, (r, g, b) in self._points:
