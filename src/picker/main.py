@@ -33,7 +33,7 @@ class OverlayWidget(QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
-        self.setCursor(Qt.CursorShape.CrossCursor)  # Use crosshair cursor
+        # self.setCursor(Qt.CursorShape.CrossCursor)  # Use crosshair cursor
         self._points: List[Tuple[int, int, Tuple[int, int, int]]] = []  # Store as (x, y, (r, g, b))
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -88,7 +88,7 @@ class Coordinates(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
 
-    coordinates: List[Coordinate] = None
+    coordinates: List[Coordinate] = []
 
     def add(self, coordinate: Coordinate):
         self.coordinates.append(coordinate)
@@ -116,7 +116,7 @@ class PickerApp(QObject):
         self.init_ui()
         self.timer = QTimer()
         self.timer.setInterval(250)
-        self.timer.timeout.connect(self.update_overlay_position())
+        self.timer.timeout.connect(self.update_overlay_position)
         self.timer.start()
 
     def _initialize_window_manager(self):
@@ -185,6 +185,7 @@ class PickerApp(QObject):
         clear_button.clicked.connect(self.clear_points)
         self.toolbar.addWidget(clear_button)
         self.toolbar.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height + 20, self.wm.width, 20)
+        self.toolbar.show()
 
     def init_overlay(self):
         self.overlay = OverlayWidget()
@@ -229,8 +230,8 @@ class PickerApp(QObject):
             screen_top_left = win32gui.ClientToScreen(self.nikke_hwnd, (client_rect[0], client_rect[1]))
 
             # Calculate click position relative to client area top-left
-            click_x_client = click_pos_screen.x() - screen_top_left[0]
-            click_y_client = click_pos_screen.y() - screen_top_left[1]
+            click_x_client = int(click_pos_screen.x() - screen_top_left[0])
+            click_y_client = int(click_pos_screen.y() - screen_top_left[1])
 
             # Check if click is within the client area bounds
             client_width = client_rect[2] - client_rect[0]
