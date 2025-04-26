@@ -61,6 +61,22 @@ class WindowManager:
     def get_rect(self) -> Tuple[int, int, int, int]:
         return self._window_info.rect
 
+    @property
+    def start_x(self):
+        return self._window_info.left
+
+    @property
+    def start_y(self):
+        return self._window_info.top
+
+    @property
+    def height(self):
+        return self._window_info.height
+
+    @property
+    def width(self):
+        return self._window_info.width
+
     def resize_to_standard(self, width: int = 1500, position: str = "top-left", margin: int = 10) -> bool:
         """
         Resize the window's client area based on specified width.
