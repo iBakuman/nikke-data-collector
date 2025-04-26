@@ -1,15 +1,14 @@
 import os
 import sys
 from dataclasses import dataclass
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 import win32gui
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PySide6.QtCore import QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton,
                                QToolBar, QWidget)
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.mixin import JSONSerializableMixin
@@ -32,7 +31,7 @@ class OverlayWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
                             Qt.WindowType.WindowStaysOnTopHint |
                             Qt.WindowType.Tool |
@@ -57,13 +56,13 @@ class OverlayWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Fill with almost completely transparent color (1% opacity)
-        painter.fillRect(self.rect(), QColor(200, 190, 126, 1))  # Nearly invisible (1/255 opacity)
+        # Do NOT fill background to keep it completely transparent
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 1))
 
         # Draw circles at clicked points
         for x, y, (r, g, b) in self._points:
             # Draw outer circle (e.g., white)
-            painter.setPen(QPen(QColor(255, 255, 255), 2))
+            painter.setPen(QPen(QColor(255, 0, 0), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(QPoint(x, y), 5, 5)
 
@@ -215,54 +214,31 @@ class PickerApp(QObject):
         click_pos_overlay = event.position()
         logger.debug(f"Overlay clicked at: {click_pos_overlay}")
 
-        try:
-            # Capture the window content at the current moment
-            screen = QApplication.primaryScreen()
-            self.overlay.hide()
-            window_pixmap = screen.grabWindow(self.nikke_hwnd)
+        # Convert overlay coordinates to window coordinates
+        x = int(click_pos_overlay.x())
+        y = int(click_pos_overlay.y())
 
-            if window_pixmap.isNull():
+        try:
+            # Use WindowCapturer to capture the window directly
+            # This bypasses Qt's screenshot mechanism which might capture the overlay
+            capture_result = self.wc.capture_window()
+
+            if not capture_result:
                 logger.error("Failed to capture window content.")
                 return
-
-            # Save captured image for debugging
-            self._save_debug_image(window_pixmap)
-
-            # Convert overlay coordinates to window coordinates
-            # For most cases, they should be identical as we're overlaying exactly
-            x = int(click_pos_overlay.x())
-            y = int(click_pos_overlay.y())
-
-            # Get pixel color at clicked position
-            pixel_color = window_pixmap.toImage().pixelColor(x, y)
-            r, g, b = pixel_color.red(), pixel_color.green(), pixel_color.blue()
+            # Get pixel color from the captured image
+            # The capture result coordinates are relative to the window
+            pil_image = capture_result.to_pil()
+            r, g, b = pil_image.getpixel((x, y))
 
             # Store the captured point
             self.collected_points.add(Coordinate(x=x, y=y, color=(r, g, b)))
             logger.info(f"Point captured: ({x}, {y}) -> RGB({r}, {g}, {b})")
-
             # Update the overlay to draw the new point
             self.overlay.set_points(self.collected_points.to_list())
 
         except Exception as e:
             logger.exception(f"Error capturing pixel color: {e}")
-
-    def _save_debug_image(self, pixmap):
-        """Save the captured image for debugging purposes."""
-        try:
-            # Create debug directory if it doesn't exist
-            debug_dir = os.path.join(OUTPUT_DIR, "debug")
-            os.makedirs(debug_dir, exist_ok=True)
-
-            # Generate filename with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            debug_filename = os.path.join(debug_dir, f"capture_{timestamp}.png")
-
-            # Save the image
-            pixmap.save(debug_filename)
-            logger.info(f"Debug image saved to {debug_filename}")
-        except Exception as e:
-            logger.exception(f"Failed to save debug image: {e}")
 
     @Slot(list)
     def update_status_label(self, points):
