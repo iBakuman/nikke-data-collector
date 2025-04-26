@@ -34,6 +34,7 @@ name = "nikke-data-collector"
 packages = [
     {include = "collector", from = "src"},
     {include = "repository", from = "src"},
+    {include = "picker", from  = "src"},
     {include = "ui", from = "src"},
     {include = "tests"}, 
     {include = "scripts"},
