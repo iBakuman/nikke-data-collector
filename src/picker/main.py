@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 import win32gui
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PySide6.QtCore import QObject, QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QLabel, QMessageBox, QPushButton,
                                QToolBar, QWidget)
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.mixin import JSONSerializableMixin
@@ -32,15 +32,12 @@ class OverlayWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        # self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
-                           Qt.WindowType.WindowStaysOnTopHint |
-                           Qt.WindowType.Tool |
-                           Qt.WindowType.BypassWindowManagerHint)  # Add bypass hint
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
-        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+                            Qt.WindowType.WindowStaysOnTopHint |
+                            Qt.WindowType.Tool |
+                            Qt.WindowType.BypassWindowManagerHint)  # Add bypass hint
         self.setMouseTracking(True)  # Enable mouse tracking
-        # self.setCursor(Qt.CursorShape.CrossCursor)  # Use crosshair cursor
         self._points: List[Tuple[int, int, Tuple[int, int, int]]] = []  # Store as (x, y, (r, g, b))
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -61,7 +58,7 @@ class OverlayWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Fill with almost completely transparent color (1% opacity)
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 1))  # Nearly invisible (1/255 opacity)
+        painter.fillRect(self.rect(), QColor(200, 190, 126, 1))  # Nearly invisible (1/255 opacity)
 
         # Draw circles at clicked points
         for x, y, (r, g, b) in self._points:
@@ -87,6 +84,7 @@ class Coordinate(JSONWizard, JSONSerializableMixin):
 
     def to_tuple(self) -> Tuple[int, int, Tuple[int, int, int]]:
         return int(self.x), int(self.y), self.color
+
 
 class Coordinates(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
@@ -198,6 +196,12 @@ class PickerApp(QObject):
         self.overlay.setGeometry(self.wm.start_x, self.wm.start_y, self.wm.width, self.wm.height)
         logger.info("--- Overlay window.show() called ---")  # DEBUG
         self.overlay.show()
+        # hwnd = self.overlay.winId()
+        # exStyle = GetWindowLong(hwnd, GWL_EXSTYLE)
+        # exStyle = exStyle | WS_EX_LAYERED
+        # exStyle = exStyle & ~ WS_EX_TRANSPARENT
+        # SetWindowLong(hwnd, GWL_EXSTYLE, exStyle)
+        # SetLayeredWindowAttributes(hwnd, 0, 1, LWA_ALPHA)
 
     @Slot(QMouseEvent)
     def handle_overlay_click(self, event: QMouseEvent):
@@ -214,6 +218,7 @@ class PickerApp(QObject):
         try:
             # Capture the window content at the current moment
             screen = QApplication.primaryScreen()
+            self.overlay.hide()
             window_pixmap = screen.grabWindow(self.nikke_hwnd)
 
             if window_pixmap.isNull():
