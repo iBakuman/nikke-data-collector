@@ -1,6 +1,6 @@
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import win32gui
@@ -85,11 +85,12 @@ class Coordinate(JSONWizard, JSONSerializableMixin):
         return int(self.x), int(self.y), self.color
 
 
+@dataclass
 class Coordinates(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
 
-    coordinates: List[Coordinate] = []
+    coordinates: List[Coordinate] = field(default_factory=list)
 
     def add(self, coordinate: Coordinate):
         self.coordinates.append(coordinate)
