@@ -8,7 +8,6 @@ from typing import List, Optional
 
 from domain.image_element import ImageElementEntity
 from log.config import get_logger
-
 from .connection import get_db_connection
 
 logger = get_logger(__name__)
@@ -38,8 +37,6 @@ class ImageElementDAO:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             ''')
-
-            conn.commit()
 
     @staticmethod
     def save(element: ImageElementEntity) -> ImageElementEntity:
@@ -81,7 +78,6 @@ class ImageElementDAO:
                     element.image_data, element.threshold, element.id
                 ))
 
-            conn.commit()
             return element
 
     @staticmethod
@@ -170,10 +166,7 @@ class ImageElementDAO:
         """
         with get_db_connection() as conn:
             cursor = conn.cursor()
-
             cursor.execute('DELETE FROM image_elements WHERE id = ?', (element_id,))
-            conn.commit()
-
             return cursor.rowcount > 0
 
     @staticmethod

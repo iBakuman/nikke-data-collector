@@ -561,8 +561,6 @@ class CharacterDAO:
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_character_images_character_id ON character_images(character_id)')
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_character_images_image_hash ON character_images(image_hash)')
                 
-                # Commit the transaction
-                conn.commit()
                 logger.info("Database schema initialized successfully")
             except sqlite3.Error as e:
                 # An error occurred, rollback is automatic when using context manager

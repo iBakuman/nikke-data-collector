@@ -8,7 +8,6 @@ from typing import List, Optional
 
 from domain.pixel_element import PixelColorElementEntity, PixelColorPointEntity
 from log.config import get_logger
-
 from .connection import get_db_connection
 
 logger = get_logger(__name__)
@@ -49,8 +48,6 @@ class PixelColorElementDAO:
                 FOREIGN KEY (element_id) REFERENCES pixel_color_elements (id) ON DELETE CASCADE
             )
             ''')
-
-            conn.commit()
 
     @staticmethod
     def save(element: PixelColorElementEntity) -> PixelColorElementEntity:
@@ -103,7 +100,6 @@ class PixelColorElementDAO:
                     point_entity.color_r, point_entity.color_g, point_entity.color_b
                 ))
 
-            conn.commit()
             return element
 
     @staticmethod
@@ -248,8 +244,6 @@ class PixelColorElementDAO:
 
             # Delete element (points will be cascade deleted by foreign key constraint)
             cursor.execute('DELETE FROM pixel_color_elements WHERE id = ?', (element_id,))
-            conn.commit()
-
             return cursor.rowcount > 0
 
     @staticmethod
