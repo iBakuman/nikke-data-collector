@@ -12,21 +12,21 @@ from .context import AutomationContext, Result
 from .controller import AutomationController
 from .elements import ImageElement, TextElement, UIElement
 # Import and re-export main components for easy access
-from .enums import CollectorType, ElementKey, RegionKey, StateType, StepId
-from .regions import FixedRegion, Region, RelativeRegion
+from .enums import CollectorType, RegionKey, StateType, StepId
+from .regions import Region
 from .states import ScreenState
 from .steps import (AutomationStep, CollectionStep, ConditionalStep,
                     InteractionStep, WaitStep)
 
 __all__ = [
     # Enums
-    'StateType', 'RegionKey', 'ElementKey', 'StepId', 'CollectorType',
+    'StateType', 'RegionKey', 'StepId', 'CollectorType',
 
     # Elements
     'UIElement', 'TextElement', 'ImageElement',
 
     # Regions
-    'Region', 'FixedRegion', 'RelativeRegion',
+    'Region',
 
     # Conditions
     'WaitCondition', 'ElementCondition', 'StateCondition', 'MultiCondition',

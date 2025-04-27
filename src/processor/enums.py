@@ -175,27 +175,6 @@ class LogLevel(Enum):
     CRITICAL = auto()
 
 
-class ElementKey(Enum):
-    """Keys for UI elements that can be detected on screen."""
-    # Login screen elements
-    LOGIN_BUTTON = auto()
-    USERNAME_FIELD = auto()
-    PASSWORD_FIELD = auto()
-    
-    # Main menu elements
-    MENU_BUTTON = auto()
-    INVENTORY_BUTTON = auto()
-    SHOP_BUTTON = auto()
-    MISSIONS_BUTTON = auto()
-    SETTINGS_BUTTON = auto()
-    
-    # Generic elements
-    CLOSE_BUTTON = auto()
-    BACK_BUTTON = auto()
-    CONFIRM_BUTTON = auto()
-    CANCEL_BUTTON = auto()
-
-
 class StateKey(Enum):
     """Keys for different screen states in the application."""
     UNKNOWN = auto()
