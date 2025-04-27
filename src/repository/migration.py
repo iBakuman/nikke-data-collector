@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Set, Tuple, Union
 
 from .character_dao import CharacterDAO
+from .connection import get_db_connection
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -157,7 +158,7 @@ def migrate_database(db_path: Optional[Path] = None):
 
         # Get already applied migrations
         applied = get_applied_migrations(conn)
-        migrations_dir = importlib.resources.files('collector.repository.data.migrations')
+        migrations_dir = importlib.resources.files('repository.data.migrations')
         migrations = load_migrations_from_directory(migrations_dir)
         # Apply pending migrations
         success_count = 0

@@ -32,7 +32,7 @@ class DBConnection:
             The SQLite connection object
         """
         if self.db_path is None:
-            with as_file(files('collector.repository.data') / 'nikke.db') as p:
+            with as_file(files('repository.data') / 'nikke.db') as p:
                 self.conn = sqlite3.connect(str(p))
         else:
             self.conn = sqlite3.connect(str(self.db_path))
