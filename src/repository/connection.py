@@ -18,13 +18,14 @@ def get_db_connection(db_path: Optional[Path] = None) -> Generator[sqlite3.Conne
     Automatically configures the connection with proper settings and handles
     transaction management. The connection will be closed when the context exits.
 
-    If no exception occurs, you still need to commit explicitly if needed.
+    Transactions are automatically committed when the context exits without errors,
+    and rolled back if an exception occurs.
 
     Usage:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM table")
-            conn.commit()  # Don't forget to commit if needed
+            # No need to call commit() - it happens automatically when context exits
 
     Args:
         db_path: Path to the database file, or None to use default
@@ -45,6 +46,10 @@ def get_db_connection(db_path: Optional[Path] = None) -> Generator[sqlite3.Conne
         conn.row_factory = sqlite3.Row
 
         yield conn
+
+        # Auto-commit if no exception occurred
+        if conn:
+            conn.commit()
 
     except Exception as e:
         if conn:
