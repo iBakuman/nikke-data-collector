@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from domain.image_element import ImageElementEntity
 from log.config import get_logger
+
 from .connection import get_db_connection
 
 logger = get_logger(__name__)
