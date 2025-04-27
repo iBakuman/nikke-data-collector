@@ -14,29 +14,18 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Tuple, TypeVar, Union
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 from PIL import Image
+
 from .enums import ElementType
+from .regions import Region
 
 # Type definitions
-Bounds = Tuple[int, int, int, int]  # x, y, width, height
 Point = Tuple[int, int]  # x, y
 Color = Tuple[int, int, int]  # BGR color tuple
-
-
-class ScreenCaptureProvider(Protocol):
-    """Protocol for screen capture provider."""
-
-    def get_screenshot(self) -> np.ndarray:
-        """Get a screenshot of the game window.
-
-        Returns:
-            np.ndarray: BGR image of the game window
-        """
-        ...
 
 
 @dataclass
@@ -44,7 +33,7 @@ class DetectionResult:
     """Result of a UI element detection attempt."""
 
     found: bool
-    bounds: Optional[Bounds] = None
+    bounds: Optional[Region] = None
     confidence: float = 0.0
     text: Optional[str] = None
 
@@ -64,7 +53,7 @@ class UIElement(ABC):
             self,
             name: str,
             element_type: ElementType,
-            region: Optional[Bounds] = None,
+            region: Optional[Region] = None,
     ):
         """Initialize a UI element.
 
@@ -126,7 +115,7 @@ class ImageElement(UIElement):
             template_path: Union[str, Path],
             element_type: ElementType,
             threshold: float = 0.8,
-            region: Optional[Bounds] = None,
+            region: Optional[Region] = None,
             method: int = cv2.TM_CCOEFF_NORMED,
     ):
         """Initialize an image element.
@@ -221,7 +210,7 @@ class PixelColorElement(UIElement):
             element_type: ElementType,
             points_colors: List[Tuple[Point, Color]],
             tolerance: int = 10,
-            region: Optional[Bounds] = None,
+            region: Optional[Region] = None,
             match_all: bool = True,
     ):
         """Initialize a pixel color element.
@@ -302,7 +291,7 @@ class TextElement(UIElement):
             name: str,
             text: str,
             element_type: ElementType,
-            region: Optional[Bounds] = None,
+            region: Optional[Region] = None,
             case_sensitive: bool = False,
             exact_match: bool = False,
     ):
@@ -346,111 +335,3 @@ class TextElement(UIElement):
         except Exception as e:
             self.logger.error(f"Error detecting text element: {e}")
             return DetectionResult(found=False)
-
-
-T = TypeVar('T', bound=UIElement)
-
-
-class ElementManager:
-    """Manages a collection of UI elements."""
-
-    def __init__(self):
-        """Initialize the element manager."""
-        self.elements: Dict[str, UIElement] = {}
-        self.logger = logging.getLogger("ElementManager")
-
-    def register(self, element: UIElement) -> None:
-        """Register an element with the manager.
-
-        Args:
-            element: UI element to register
-        """
-        if element.name in self.elements:
-            self.logger.warning(f"Element with name '{element.name}' already exists and will be replaced")
-
-        self.elements[element.name] = element
-        self.logger.debug(f"Registered element: {element.name} ({element.element_type.name})")
-
-    def get(self, name: str) -> Optional[UIElement]:
-        """Get an element by name.
-
-        Args:
-            name: Name of the element
-
-        Returns:
-            UIElement or None: The element if found, None otherwise
-        """
-        return self.elements.get(name)
-
-    def get_by_type(self, element_type: ElementType) -> List[UIElement]:
-        """Get all elements of a specific type.
-
-        Args:
-            element_type: Type of elements to get
-
-        Returns:
-            List[UIElement]: List of elements of the specified type
-        """
-        return [e for e in self.elements.values() if e.element_type == element_type]
-
-    def detect_all(self, screenshot: Image.Image) -> Dict[str, DetectionResult]:
-        """Detect all registered elements in the screenshot.
-
-        Args:
-            screenshot: BGR image of the game window
-
-        Returns:
-            Dict[str, DetectionResult]: Dictionary mapping element names to detection results
-        """
-        results = {}
-        for name, element in self.elements.items():
-            results[name] = element.detect(screenshot)
-        return results
-
-    def detect_by_type(
-            self,
-            screenshot: Image.Image,
-            element_type: ElementType
-    ) -> Dict[str, DetectionResult]:
-        """Detect all elements of a specific type in the screenshot.
-
-        Args:
-            screenshot: BGR image of the game window
-            element_type: Type of elements to detect
-
-        Returns:
-            Dict[str, DetectionResult]: Dictionary mapping element names to detection results
-        """
-        elements = self.get_by_type(element_type)
-        results = {}
-        for element in elements:
-            results[element.name] = element.detect(screenshot)
-        return results
-
-    def detect_in_region(
-            self,
-            screenshot: Image.Image,
-            region: Bounds
-    ) -> Dict[str, DetectionResult]:
-        """Detect all elements within a specific region in the screenshot.
-
-        Args:
-            screenshot: BGR image of the game window
-            region: Region to check (x, y, width, height)
-
-        Returns:
-            Dict[str, DetectionResult]: Dictionary mapping element names to detection results
-        """
-        x, y, w, h = region
-        # Find elements that might overlap with this region
-        results = {}
-        for name, element in self.elements.items():
-            if element.region:
-                ex, ey, ew, eh = element.region
-                # Check if the element's region overlaps with the target region
-                if ex < x + w and ex + ew > x and ey < y + h and ey + eh > y:
-                    results[name] = element.detect(screenshot)
-            else:
-                # Element has no defined region, so include it
-                results[name] = element.detect(screenshot)
-        return results

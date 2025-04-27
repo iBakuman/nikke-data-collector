@@ -387,7 +387,7 @@ class LoopStep(AutomationStep):
         context.add_data("loop_iteration", iteration)
 
         # Loop until max_iterations reached or continue_condition fails
-        while (self.max_iterations == 0 or iteration < self.max_iterations):
+        while self.max_iterations == 0 or iteration < self.max_iterations:
             # Check continue condition if provided
             if self.continue_condition and iteration > 0:
                 condition_result = self.continue_condition.check(context, screenshot)
