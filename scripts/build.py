@@ -60,8 +60,6 @@ def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone
         f"--report={report_path}"
     ]
 
-    # Critical: Include resources directory
-    resources_dir = src_dir / "collector" / "resources"
 
     if not debug_mode:
         cmd.append("--windows-console-mode=disable")
@@ -73,13 +71,8 @@ def build(output_dir:  str= None, output_name=None, debug_mode=False, standalone
         # Standalone mode - create a directory with the executable and dependencies
         cmd.append("--standalone")
 
-    # Include all files in the resources directory
-    cmd.append(f"--include-data-dir={resources_dir}=resources")
-    # cmd.append(f"--include-data-files={resources_dir / '*.*'}=resources/")
-    # Include files in the ref subdirectory - scan recursively with **/*
-    # cmd.append(f"--include-data-files={resources_dir / 'ref' / '**/*.*'}=resources/ref/")
-    # Include files in the detectable subdirectory - scan recursively with **/*
-    # cmd.append(f"--include-data-files={resources_dir / 'detectable' / '**/*.*'}=resources/detectable/")
+    cmd.append(f"--include-package-data=repository.data")
+    cmd.append(f"--include-package=repository.data")
 
     # Add debug option if requested
     # if debug_mode:

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Set, Tuple, Union
 
 from .character_dao import CharacterDAO
-from .conn import get_db_connection, get_db_path
+from .connection import get_db_connection, get_db_path
 
 # Configure logging
 logger = logging.getLogger(__name__)

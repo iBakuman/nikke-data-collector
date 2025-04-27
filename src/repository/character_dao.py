@@ -8,7 +8,10 @@ import numpy as np
 from PIL import Image
 
 from domain.character import Character
-from .conn import get_db_connection, get_db_path
+from log.config import get_logger
+from .connection import get_db_connection, get_db_path
+
+logger = get_logger(__name__)
 
 
 class CharacterDAO:
@@ -54,6 +57,10 @@ class CharacterDAO:
             return True
         except sqlite3.IntegrityError:
             # Character with this ID already exists
+            logger.warning(f"Character with ID {character_id} already exists")
+            return False
+        except sqlite3.Error as e:
+            logger.error(f"Error adding character: {e}")
             return False
         finally:
             conn.close()
@@ -179,8 +186,9 @@ class CharacterDAO:
                     name=name
                 )
             return None
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving character {character_id}: {e}")
+            return None
 
     def get_character_raw(self, character_id: str) -> Optional[Dict]:
         """
@@ -204,8 +212,9 @@ class CharacterDAO:
             if row:
                 return dict(row)
             return None
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving character {character_id}: {e}")
+            return None
 
     def get_all_characters(self) -> Optional[List[Character]]:
         """
@@ -233,8 +242,9 @@ class CharacterDAO:
                     name=name
                 ))
             return result
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving all characters: {e}")
+            return None
 
     def get_all_characters_raw(self) -> List[Dict]:
         """
@@ -249,8 +259,9 @@ class CharacterDAO:
             cursor = conn.execute("SELECT * FROM characters ORDER BY id")
 
             return [dict(row) for row in cursor.fetchall()]
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving all characters: {e}")
+            return []
 
     def add_character_image(self, character_id: str, image: Union[str, np.ndarray, Image.Image],
                            image_hash: Optional[str] = None) -> bool:
@@ -312,6 +323,10 @@ class CharacterDAO:
             return True
         except sqlite3.IntegrityError:
             # Character ID doesn't exist or hash collision
+            logger.warning(f"Cannot add image: character ID {character_id} not found or duplicate hash")
+            return False
+        except sqlite3.Error as e:
+            logger.error(f"Database error adding character image: {e}")
             return False
         finally:
             conn.close()
@@ -335,8 +350,9 @@ class CharacterDAO:
             )
 
             return [(row['id'], row['image_data'], row['image_hash']) for row in cursor.fetchall()]
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving images for character {character_id}: {e}")
+            return []
 
     def get_character_image(self, image_id: int) -> Optional[Tuple[bytes, str]]:
         """
@@ -360,8 +376,9 @@ class CharacterDAO:
             if row:
                 return (row['image_data'], row['image_hash'])
             return None
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving image {image_id}: {e}")
+            return None
 
     def delete_character_image(self, image_id: int) -> bool:
         """
@@ -384,6 +401,9 @@ class CharacterDAO:
 
             success = cursor.rowcount > 0
             return success
+        except sqlite3.Error as e:
+            logger.error(f"Error deleting image {image_id}: {e}")
+            return False
         finally:
             conn.close()
 
@@ -412,8 +432,9 @@ class CharacterDAO:
                 result[char_id].append(image_hash)
 
             return result
-        finally:
-            conn.close()
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving all character image hashes: {e}")
+            return {}
 
     def get_image_by_hash(self, image_hash: str) -> Optional[Tuple[str, bytes]]:
         """
@@ -440,6 +461,9 @@ class CharacterDAO:
             row = cursor.fetchone()
             if row:
                 return (row['character_id'], row['image_data'])
+            return None
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving image by hash: {e}")
             return None
         finally:
             conn.close()
@@ -502,5 +526,49 @@ class CharacterDAO:
             img = img.convert('RGB')
 
         return img
+
+    @staticmethod
+    def initialize_database():
+        """Initialize the database with required tables."""
+        with get_db_connection() as conn:
+            # Create tables in a transaction
+            conn.execute('BEGIN TRANSACTION')
+            try:
+                # Create characters table
+                conn.execute('''
+                CREATE TABLE IF NOT EXISTS characters (
+                    id TEXT PRIMARY KEY,
+                    english_name TEXT,
+                    japanese_name TEXT,
+                    chinese_name TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                ''')
+                
+                # Create character_images table
+                conn.execute('''
+                CREATE TABLE IF NOT EXISTS character_images (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id TEXT NOT NULL,
+                    image_data BLOB NOT NULL,
+                    image_hash TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+                )
+                ''')
+                
+                # Create indexes for performance
+                conn.execute('CREATE INDEX IF NOT EXISTS idx_character_images_character_id ON character_images(character_id)')
+                conn.execute('CREATE INDEX IF NOT EXISTS idx_character_images_image_hash ON character_images(image_hash)')
+                
+                # Commit the transaction
+                conn.commit()
+                logger.info("Database schema initialized successfully")
+            except sqlite3.Error as e:
+                # An error occurred, rollback is automatic when using context manager
+                logger.error(f"Error initializing database schema: {e}")
+                # The context manager will handle rollback when an exception occurs
+                raise
 
 
