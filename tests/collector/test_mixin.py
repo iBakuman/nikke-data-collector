@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from dataclass_wizard import JSONWizard
 
-from collector.mixin import JSONSerializableMixin
+from mixin.json import JSONSerializableMixin
 
 
 def test_json_serializable():

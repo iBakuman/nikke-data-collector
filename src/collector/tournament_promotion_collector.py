@@ -11,10 +11,10 @@ from typing import List, Optional
 
 from dataclass_wizard import JSONWizard, JSONPyWizard
 
+from mixin.json import JSONSerializableMixin
 from .battle_data_collector import BattleDataCollector
 from .image_detector import ImageDetector
 from .logging_config import get_logger
-from .mixin import JSONSerializableMixin
 from .models import BattleData, TournamentStage
 from .mouse_control import MouseController
 from .ui_def import BATTLE_RESULT, PROMOTION_TOURNAMENT

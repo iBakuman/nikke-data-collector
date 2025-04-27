@@ -5,7 +5,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Optional
 
-DEFAULT_DB_NAME = 'nikke.repository'
+DEFAULT_DB_NAME = 'nikke.db'
 
 def get_db_path(db_name: Optional[str] = None) -> Path:
     """

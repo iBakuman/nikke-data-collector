@@ -10,10 +10,10 @@ from PySide6.QtWidgets import (QLabel, QMessageBox, QPushButton,
 from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
-from collector.mixin import JSONSerializableMixin
 from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, get_window_rect
+from mixin.json import JSONSerializableMixin
 
 logger = get_logger(__name__)
 
