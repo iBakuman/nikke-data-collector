@@ -11,7 +11,7 @@ from typing import Optional
 
 
 @dataclass
-class ImageElementDTO:
+class ImageElement:
     """Database representation of an ImageElement."""
 
     id: Optional[int] = None  # Primary key, None for new records

@@ -13,15 +13,15 @@ from typing import Any, Dict, List, Optional
 
 from PIL import Image
 
+from domain.character import Character, ChargeValues, WeaponType
 from log.config import get_logger
 from .base_importer import DataImporter
-from .. import CharacterDTORepository
-from ..character_dto import Character, ChargeValues, WeaponType
+from .. import CharacterDAO
 
 logger = get_logger(__name__)
 
 class CharacterImporter(DataImporter[Character]):
-    def __init__(self, character_dao: CharacterDTORepository):
+    def __init__(self, character_dao: CharacterDAO):
         self.character_dao = character_dao
 
     """Importer for Character data from files and directories."""

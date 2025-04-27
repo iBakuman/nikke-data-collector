@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from log.config import get_logger
-from .character_dto_repository import CharacterDTORepository
-from .image_element_repository import ImageElementRepository
+from .character_dao import CharacterDAO
+from .image_element_dao import ImageElementDAO
 from .importers.base_importer import DataImporter
 from .importers.character_importer import CharacterImporter
 from .importers.image_element_importer import ImageElementImporter
@@ -34,8 +34,8 @@ class ImportManager:
         }
 
         # Initialize repositories
-        self._character_repo = CharacterDTORepository()
-        self._image_element_repo = ImageElementRepository()
+        self._character_repo = CharacterDAO()
+        self._image_element_repo = ImageElementDAO()
 
     def register_importer(self, data_type: str, importer: DataImporter) -> None:
         """Register a new importer for a data type.

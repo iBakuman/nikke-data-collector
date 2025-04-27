@@ -3,7 +3,7 @@ from typing import List, Optional
 from PIL import Image
 
 from collector.profile_collector import ProfileCollector
-from repository.character_dto import Character
+from domain.character import Character
 from .character_matcher import CharacterMatcher
 from .logging_config import get_logger
 from .models import Round, User

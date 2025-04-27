@@ -7,25 +7,25 @@ handling serialization, deserialization, and CRUD operations.
 
 from typing import List, Optional
 
+from domain.image_element import ImageElement
 from log.config import get_logger
 from .conn import get_db_connection
-from .image_element_dto import ImageElementDTO
 
 logger = get_logger(__name__)
 
 
-class ImageElementRepository:
+class ImageElementDAO:
     """Repository for database operations on ImageElement entities."""
 
     @staticmethod
-    def save(dto: ImageElementDTO) -> ImageElementDTO:
-        """Save an ImageElementDTO to the database.
+    def save(dto: ImageElement) -> ImageElement:
+        """Save an ImageElement to the database.
 
         Args:
-            dto: The ImageElementDTO to save
+            dto: The ImageElement to save
 
         Returns:
-            The saved ImageElementDTO with ID populated
+            The saved ImageElement with ID populated
         """
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -61,14 +61,14 @@ class ImageElementRepository:
         return dto
 
     @staticmethod
-    def find_by_id(element_id: int) -> Optional[ImageElementDTO]:
-        """Find an ImageElementDTO by its ID.
+    def find_by_id(element_id: int) -> Optional[ImageElement]:
+        """Find an ImageElement by its ID.
 
         Args:
             element_id: The ID of the ImageElement to find
 
         Returns:
-            The ImageElementDTO if found, None otherwise
+            The ImageElement if found, None otherwise
         """
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -84,11 +84,11 @@ class ImageElementRepository:
         row = cursor.fetchone()
         if not row:
             return None
-        return ImageElementRepository.row_to_dto(row)
+        return ImageElementDAO.row_to_dto(row)
 
     @staticmethod
-    def row_to_dto(row) -> ImageElementDTO:
-        return ImageElementDTO(
+    def row_to_dto(row) -> ImageElement:
+        return ImageElement(
             id=row[0],
             name=row[1],
             region_x=row[2],
@@ -104,14 +104,14 @@ class ImageElementRepository:
         )
 
     @staticmethod
-    def find_by_name(name: str) -> Optional[ImageElementDTO]:
-        """Find an ImageElementDTO by its name.
+    def find_by_name(name: str) -> Optional[ImageElement]:
+        """Find an ImageElement by its name.
 
         Args:
             name: The name of the ImageElement to find
 
         Returns:
-            The ImageElementDTO if found, None otherwise
+            The ImageElement if found, None otherwise
         """
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -128,10 +128,10 @@ class ImageElementRepository:
         if not row:
             return None
 
-        return ImageElementRepository.row_to_dto(row)
+        return ImageElementDAO.row_to_dto(row)
 
     @staticmethod
-    def find_all() -> List[ImageElementDTO]:
+    def find_all() -> List[ImageElement]:
         """Find all ImageElementDTOs in the database.
 
         Returns:
@@ -149,7 +149,7 @@ class ImageElementRepository:
 
         rows = cursor.fetchall()
         return [
-            ImageElementRepository.row_to_dto(row) for row in rows
+            ImageElementDAO.row_to_dto(row) for row in rows
         ]
 
     @staticmethod

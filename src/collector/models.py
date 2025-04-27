@@ -6,8 +6,8 @@ from typing import Annotated, Dict, List, Optional
 from PIL import Image
 from dataclass_wizard import JSONPyWizard, JSONWizard, json_key
 
+from domain.character import Character
 from mixin.json import JSONSerializableMixin
-from repository.character_dto import Character
 
 
 class ServerRegion(Enum):

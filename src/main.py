@@ -36,7 +36,7 @@ from collector.tournament_promotion_collector import PromotionDataCollector
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, WindowNotFoundException
 from config_manager import ConfigManager
-from repository import CharacterDTORepository
+from repository import CharacterDAO
 from ui.main import Ui_MainWindow
 from ui.path_selector import PathSelector
 from ui.time_warning_dialog import TimeWarningDialog
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
             logger.info(f"Using cache directory: {cache_dir}")
 
             if collection_type == 'players':
-                character_dao =CharacterDTORepository()
+                character_dao =CharacterDAO()
                 # Initialize character matcher with platform-specific cache dir
                 character_matcher = CharacterMatcher(cache_dir=cache_dir, character_dao=character_dao)
                 profile_collector = ProfileCollector(controller=mouse_controller, capturer=self.window_capturer)

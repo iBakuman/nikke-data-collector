@@ -21,8 +21,8 @@ import numpy as np
 import pyautogui
 from PIL import Image
 
+from domain.image_element import ImageElement
 from log.config import get_logger
-from repository.image_element_dto import ImageElementDTO
 from .regions import Point, Region
 
 logger = get_logger(__name__)
@@ -116,14 +116,14 @@ class ImageElement(UIElement):
         self.debug_path = debug_path
 
     @classmethod
-    def from_dto(cls, dto: ImageElementDTO, debug_path: Optional[Path] = None) -> 'ImageElement':
+    def from_dto(cls, dto: ImageElement, debug_path: Optional[Path] = None) -> 'ImageElement':
         """Create an ImageElement from a DTO object.
 
         This factory method converts a database-sourced DTO into a fully functional
         ImageElement instance by loading the necessary resources.
 
         Args:
-            dto: The ImageElementDTO from the database
+            dto: The ImageElement from the database
             debug_path: Optional path for debug images
 
         Returns:
@@ -132,8 +132,8 @@ class ImageElement(UIElement):
         Raises:
             ValueError: If the DTO contains invalid data
         """
-        if not isinstance(dto, ImageElementDTO):
-            raise TypeError(f"Expected ImageElementDTO, got {type(dto).__name__}")
+        if not isinstance(dto, ImageElement):
+            raise TypeError(f"Expected ImageElement, got {type(dto).__name__}")
 
         # Create Region from DTO fields
         region = Region(
@@ -161,19 +161,19 @@ class ImageElement(UIElement):
             threshold=dto.threshold
         )
 
-    def to_dto(self) -> ImageElementDTO:
+    def to_dto(self) -> ImageElement:
         """Convert this ImageElement to a DTO for database storage.
 
         Returns:
-            An ImageElementDTO representing this element
+            An ImageElement representing this element
         """
-        from repository.image_element_dto import ImageElementDTO
+        from domain.image_element import ImageElement
         img_byte_arr = io.BytesIO()
         self.target_image.save(img_byte_arr, format='PNG')
         image_data = img_byte_arr.getvalue()
 
         # Create DTO with region data and image binary data
-        return ImageElementDTO(
+        return ImageElement(
             name=self.name,
             region_x=self.region.start_x,
             region_y=self.region.start_y,

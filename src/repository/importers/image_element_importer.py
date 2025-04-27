@@ -1,7 +1,7 @@
 """
 ImageElement data importer.
 
-This module provides importers for ImageElementDTO objects from various sources.
+This module provides importers for ImageElement objects from various sources.
 """
 
 import io
@@ -11,14 +11,14 @@ from typing import Any, Dict, List, Optional
 
 from PIL import Image
 
+from domain.image_element import ImageElement
 from log.config import get_logger
 from .base_importer import DataImporter
-from ..image_element_dto import ImageElementDTO
 
 logger = get_logger(__name__)
 
 
-class ImageElementImporter(DataImporter[ImageElementDTO]):
+class ImageElementImporter(DataImporter[ImageElement]):
     """Importer for ImageElement data from files and directories."""
 
     def __init__(self, default_threshold: float = 0.8):
@@ -29,7 +29,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         """
         self.default_threshold = default_threshold
 
-    def import_from_directory(self, directory_path: str) -> List[ImageElementDTO]:
+    def import_from_directory(self, directory_path: str) -> List[ImageElement]:
         """Import all image elements from a directory.
         
         Looks for images and an optional config.json file that contains region info.
@@ -38,7 +38,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             directory_path: Path to directory containing images and config
             
         Returns:
-            List of imported ImageElementDTO objects
+            List of imported ImageElement objects
         """
         directory = Path(directory_path)
         if not directory.exists() or not directory.is_dir():
@@ -77,14 +77,14 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
 
         return result
 
-    def import_from_file(self, file_path: str) -> List[ImageElementDTO]:
+    def import_from_file(self, file_path: str) -> List[ImageElement]:
         """Import a single image element from a file.
         
         Args:
             file_path: Path to the image file
             
         Returns:
-            List containing a single ImageElementDTO or empty if failed
+            List containing a single ImageElement or empty if failed
         """
         path = Path(file_path)
         if not path.exists():
@@ -110,7 +110,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             logger.error(f"Failed to import image {file_path}: {e}")
             return []
 
-    def import_from_json(self, json_path: str) -> List[ImageElementDTO]:
+    def import_from_json(self, json_path: str) -> List[ImageElement]:
         """Import image elements from a JSON configuration.
         
         The JSON should contain a list of objects with 'image_path' and other properties.
@@ -119,7 +119,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             json_path: Path to the JSON configuration file
             
         Returns:
-            List of imported ImageElementDTO objects
+            List of imported ImageElement objects
         """
         json_file = Path(json_path)
         if not json_file.exists():
@@ -180,7 +180,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         """
         return ['png', 'jpg', 'jpeg', 'bmp', 'gif', 'json']
 
-    def _import_image_file(self, image_path: Path, config: Dict[str, Any]) -> Optional[ImageElementDTO]:
+    def _import_image_file(self, image_path: Path, config: Dict[str, Any]) -> Optional[ImageElement]:
         """Internal helper to import a single image file with config.
         
         Args:
@@ -188,7 +188,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             config: Configuration data for the image
             
         Returns:
-            ImageElementDTO instance or None if import failed
+            ImageElement instance or None if import failed
         """
         try:
             # Load the image
@@ -212,7 +212,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             threshold = config.get('threshold', self.default_threshold)
 
             # Create the DTO
-            return ImageElementDTO(
+            return ImageElement(
                 name=name,
                 region_x=region_x,
                 region_y=region_y,
