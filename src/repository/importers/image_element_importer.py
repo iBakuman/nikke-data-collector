@@ -6,23 +6,21 @@ This module provides importers for ImageElementDTO objects from various sources.
 
 import io
 import json
-import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PIL import Image
 
 from log.config import get_logger
-
-from ..image_element_dto import ImageElementDTO
 from .base_importer import DataImporter
+from ..image_element_dto import ImageElementDTO
 
 logger = get_logger(__name__)
 
+
 class ImageElementImporter(DataImporter[ImageElementDTO]):
     """Importer for ImageElement data from files and directories."""
-    
+
     def __init__(self, default_threshold: float = 0.8):
         """Initialize the importer.
         
@@ -30,7 +28,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             default_threshold: Default detection threshold if not specified in config
         """
         self.default_threshold = default_threshold
-    
+
     def import_from_directory(self, directory_path: str) -> List[ImageElementDTO]:
         """Import all image elements from a directory.
         
@@ -46,7 +44,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         if not directory.exists() or not directory.is_dir():
             logger.error(f"Directory does not exist: {directory_path}")
             return []
-        
+
         # Try to load config file if it exists
         config_file = directory / "config.json"
         config_data = {}
@@ -58,17 +56,17 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
                 logger.error(f"Failed to parse config file: {config_file}")
             except Exception as e:
                 logger.error(f"Error reading config file: {e}")
-        
+
         # Find all image files in the directory
         result = []
-        image_files = [f for f in directory.glob("*") 
-                      if f.suffix.lower() in ['.png', '.jpg', '.jpeg', '.bmp', '.gif']]
-        
+        image_files = [f for f in directory.glob("*")
+                       if f.suffix.lower() in ['.png', '.jpg', '.jpeg', '.bmp', '.gif']]
+
         for image_file in image_files:
             # Get image-specific config if available
             image_name = image_file.stem
             image_config = config_data.get(image_name, {})
-            
+
             try:
                 # Import the image element
                 dto = self._import_image_file(image_file, image_config)
@@ -76,9 +74,9 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
                     result.append(dto)
             except Exception as e:
                 logger.error(f"Failed to import image {image_file}: {e}")
-        
+
         return result
-    
+
     def import_from_file(self, file_path: str) -> List[ImageElementDTO]:
         """Import a single image element from a file.
         
@@ -92,7 +90,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         if not path.exists():
             logger.error(f"File does not exist: {file_path}")
             return []
-            
+
         # Check if a matching config JSON exists
         config_path = path.with_suffix('.json')
         config_data = {}
@@ -104,14 +102,14 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
                 logger.error(f"Failed to parse config file: {config_path}")
             except Exception as e:
                 logger.error(f"Error reading config file: {e}")
-        
+
         try:
             dto = self._import_image_file(path, config_data)
             return [dto] if dto else []
         except Exception as e:
             logger.error(f"Failed to import image {file_path}: {e}")
             return []
-    
+
     def import_from_json(self, json_path: str) -> List[ImageElementDTO]:
         """Import image elements from a JSON configuration.
         
@@ -127,7 +125,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         if not json_file.exists():
             logger.error(f"JSON file does not exist: {json_path}")
             return []
-            
+
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
                 config = json.load(f)
@@ -137,10 +135,10 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         except Exception as e:
             logger.error(f"Error reading JSON file: {e}")
             return []
-            
+
         result = []
         base_dir = json_file.parent
-        
+
         # Handle both list and dict formats
         if isinstance(config, list):
             items = config
@@ -149,31 +147,31 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
         else:
             logger.error(f"Invalid JSON format in {json_path}, expected list or dict")
             return []
-            
+
         for item in items:
             image_path = item.get('image_path')
             if not image_path:
                 logger.warning(f"Missing image_path in item: {item}")
                 continue
-                
+
             # Resolve image path (absolute or relative to JSON file)
             img_path = Path(image_path)
             if not img_path.is_absolute():
                 img_path = base_dir / img_path
-                
+
             if not img_path.exists():
                 logger.error(f"Image file does not exist: {img_path}")
                 continue
-                
+
             try:
                 dto = self._import_image_file(img_path, item)
                 if dto:
                     result.append(dto)
             except Exception as e:
                 logger.error(f"Failed to import image {img_path}: {e}")
-                
+
         return result
-                
+
     def get_supported_formats(self) -> List[str]:
         """Get list of supported file formats.
         
@@ -181,7 +179,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             List of supported file extensions
         """
         return ['png', 'jpg', 'jpeg', 'bmp', 'gif', 'json']
-        
+
     def _import_image_file(self, image_path: Path, config: Dict[str, Any]) -> Optional[ImageElementDTO]:
         """Internal helper to import a single image file with config.
         
@@ -199,10 +197,10 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
                 img_byte_arr = io.BytesIO()
                 img.save(img_byte_arr, format='PNG')
                 image_data = img_byte_arr.getvalue()
-                
+
                 # Get image dimensions
                 width, height = img.size
-                
+
             # Extract region information from config or use defaults
             name = config.get('name', image_path.stem)
             region_x = config.get('region_x', 0)
@@ -212,7 +210,7 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             region_total_width = config.get('region_total_width', width)
             region_total_height = config.get('region_total_height', height)
             threshold = config.get('threshold', self.default_threshold)
-            
+
             # Create the DTO
             return ImageElementDTO(
                 name=name,
@@ -227,4 +225,4 @@ class ImageElementImporter(DataImporter[ImageElementDTO]):
             )
         except Exception as e:
             logger.error(f"Error importing image {image_path}: {e}")
-            return None 
+            return None
