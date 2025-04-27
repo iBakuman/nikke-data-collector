@@ -268,18 +268,7 @@ class PixelColorElement(UIElement):
             ValueError: If the DTO contains invalid data
         """
         # Get points_colors from entity
-        points_colors_data = entity.get_points_colors()
-
-        # Convert to the format needed by PixelColorElement
-        points_colors = []
-        for point_data, color_data in points_colors_data:
-            # Create Point object
-            point = Point(x=point_data[0], y=point_data[1],
-                         total_width=point_data[2], total_height=point_data[3])
-            # Create color tuple (r, g, b)
-            color = tuple(color_data)
-
-            points_colors.append((point, color))
+        points_colors = entity.get_points_colors()
 
         # Create and return new PixelColorElement
         return cls(
@@ -301,18 +290,8 @@ class PixelColorElement(UIElement):
             match_all=self.match_all
         )
 
-        # Convert points_colors to format needed by entity
-        points_colors_data = []
-        for point, color in self.points_colors:
-            # Create point tuple with coordinates and screen dimensions
-            point_data = (point.x, point.y, point.total_width, point.total_height)
-            # Create color tuple
-            color_data = color
-
-            points_colors_data.append((point_data, color_data))
-
-        # Set the points_colors in entity
-        entity.set_points_colors(points_colors_data)
+        # Set points and colors directly
+        entity.set_points_colors(self.points_colors)
 
         return entity
 
@@ -342,7 +321,7 @@ class PixelColorElement(UIElement):
 
             matches = 0
             for point, expected_color in self.points_colors:
-                x, y = point
+                x, y = point.x, point.y
 
                 # Check if point is within the screenshot bounds
                 if (y >= screenshot.height or x >= screenshot.width or
@@ -354,7 +333,7 @@ class PixelColorElement(UIElement):
                 r, g, b = screenshot.getpixel((x, y))
 
                 # Check if the colors match within tolerance
-                if all(abs(int(a) - int(e)) <= self.tolerance for a, e in zip((r, g, b), expected_color)):
+                if all(abs(int(a) - int(e)) <= self.tolerance for a, e in zip((r, g, b), (expected_color.r, expected_color.g, expected_color.b))):
                     matches += 1
                     if not self.match_all:
                         return DetectionResult(found=True, region=region)

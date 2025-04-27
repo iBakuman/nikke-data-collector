@@ -6,8 +6,9 @@ This module provides database operations for PixelColorElement entities.
 
 from typing import List, Optional
 
-from domain.pixel_element import PixelColorElementEntity
+from domain.pixel_element import PixelColorElementEntity, PixelColorPointEntity
 from log.config import get_logger
+
 from .connection import get_db_connection
 
 logger = get_logger(__name__)
@@ -17,19 +18,35 @@ class PixelColorElementDAO:
 
     @staticmethod
     def create_table() -> None:
-        """Create the pixel_color_elements table if it doesn't exist."""
+        """Create the pixel_color_elements and pixel_color_points tables if they don't exist."""
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Create main element table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS pixel_color_elements (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                points_colors_json TEXT NOT NULL,
                 tolerance INTEGER NOT NULL DEFAULT 10,
                 match_all BOOLEAN NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
+
+            # Create points table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pixel_color_points (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                element_id INTEGER NOT NULL,
+                point_x INTEGER NOT NULL,
+                point_y INTEGER NOT NULL,
+                total_width INTEGER NOT NULL,
+                total_height INTEGER NOT NULL,
+                color_r INTEGER NOT NULL,
+                color_g INTEGER NOT NULL,
+                color_b INTEGER NOT NULL,
+                FOREIGN KEY (element_id) REFERENCES pixel_color_elements (id) ON DELETE CASCADE
             )
             ''')
 
@@ -52,23 +69,38 @@ class PixelColorElementDAO:
                 # Insert new record
                 cursor.execute('''
                 INSERT INTO pixel_color_elements (
-                    name, points_colors_json, tolerance, match_all
-                ) VALUES (?, ?, ?, ?)
+                    name, tolerance, match_all
+                ) VALUES (?, ?, ?)
                 ''', (
-                    element.name, element.points_colors_json, 
-                    element.tolerance, element.match_all
+                    element.name, element.tolerance, element.match_all
                 ))
                 element.id = cursor.lastrowid
             else:
                 # Update existing record
                 cursor.execute('''
                 UPDATE pixel_color_elements SET
-                    name = ?, points_colors_json = ?, tolerance = ?, 
-                    match_all = ?, updated_at = CURRENT_TIMESTAMP
+                    name = ?, tolerance = ?, match_all = ?, 
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 ''', (
-                    element.name, element.points_colors_json,
-                    element.tolerance, element.match_all, element.id
+                    element.name, element.tolerance, element.match_all, element.id
+                ))
+                
+                # Delete existing points to replace them
+                cursor.execute('DELETE FROM pixel_color_points WHERE element_id = ?', (element.id,))
+
+            # Save all points
+            for point_entity in element.points:
+                point_entity.element_id = element.id
+                cursor.execute('''
+                INSERT INTO pixel_color_points (
+                    element_id, point_x, point_y, total_width, total_height,
+                    color_r, color_g, color_b
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    point_entity.element_id, point_entity.point_x, point_entity.point_y,
+                    point_entity.total_width, point_entity.total_height,
+                    point_entity.color_r, point_entity.color_g, point_entity.color_b
                 ))
 
             conn.commit()
@@ -87,18 +119,32 @@ class PixelColorElementDAO:
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Get main element data
             cursor.execute('''
-            SELECT id, name, points_colors_json, tolerance, match_all,
-                created_at, updated_at
+            SELECT id, name, tolerance, match_all, created_at, updated_at
             FROM pixel_color_elements
             WHERE id = ?
             ''', (element_id,))
 
-            row = cursor.fetchone()
-            if not row:
+            element_row = cursor.fetchone()
+            if not element_row:
                 return None
 
-            return PixelColorElementDAO.row_to_element(row)
+            element = PixelColorElementDAO._row_to_element(element_row)
+            
+            # Get all points for this element
+            cursor.execute('''
+            SELECT id, element_id, point_x, point_y, total_width, total_height,
+                   color_r, color_g, color_b
+            FROM pixel_color_points
+            WHERE element_id = ?
+            ''', (element_id,))
+            
+            point_rows = cursor.fetchall()
+            for point_row in point_rows:
+                element.points.append(PixelColorElementDAO._row_to_point(point_row))
+
+            return element
 
     @staticmethod
     def find_by_name(name: str) -> Optional[PixelColorElementEntity]:
@@ -113,18 +159,32 @@ class PixelColorElementDAO:
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Get main element data
             cursor.execute('''
-            SELECT id, name, points_colors_json, tolerance, match_all,
-                created_at, updated_at
+            SELECT id, name, tolerance, match_all, created_at, updated_at
             FROM pixel_color_elements
             WHERE name = ?
             ''', (name,))
 
-            row = cursor.fetchone()
-            if not row:
+            element_row = cursor.fetchone()
+            if not element_row:
                 return None
 
-            return PixelColorElementDAO.row_to_element(row)
+            element = PixelColorElementDAO._row_to_element(element_row)
+            
+            # Get all points for this element
+            cursor.execute('''
+            SELECT id, element_id, point_x, point_y, total_width, total_height,
+                   color_r, color_g, color_b
+            FROM pixel_color_points
+            WHERE element_id = ?
+            ''', (element.id,))
+            
+            point_rows = cursor.fetchall()
+            for point_row in point_rows:
+                element.points.append(PixelColorElementDAO._row_to_point(point_row))
+
+            return element
 
     @staticmethod
     def find_all() -> List[PixelColorElementEntity]:
@@ -136,14 +196,42 @@ class PixelColorElementDAO:
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Get all elements
             cursor.execute('''
-            SELECT id, name, points_colors_json, tolerance, match_all,
-                created_at, updated_at
+            SELECT id, name, tolerance, match_all, created_at, updated_at
             FROM pixel_color_elements
             ''')
 
-            rows = cursor.fetchall()
-            return [PixelColorElementDAO.row_to_element(row) for row in rows]
+            element_rows = cursor.fetchall()
+            elements = [PixelColorElementDAO._row_to_element(row) for row in element_rows]
+            
+            # If no elements, return empty list
+            if not elements:
+                return []
+                
+            # Get all points for all elements in one query
+            element_ids = [element.id for element in elements]
+            placeholders = ','.join(['?'] * len(element_ids))
+            
+            cursor.execute(f'''
+            SELECT id, element_id, point_x, point_y, total_width, total_height,
+                   color_r, color_g, color_b
+            FROM pixel_color_points
+            WHERE element_id IN ({placeholders})
+            ''', element_ids)
+            
+            point_rows = cursor.fetchall()
+            
+            # Create a map from element_id to element for quick lookup
+            element_map = {element.id: element for element in elements}
+            
+            # Add points to their respective elements
+            for point_row in point_rows:
+                point = PixelColorElementDAO._row_to_point(point_row)
+                if point.element_id in element_map:
+                    element_map[point.element_id].points.append(point)
+            
+            return elements
 
     @staticmethod
     def delete(element_id: int) -> bool:
@@ -158,13 +246,14 @@ class PixelColorElementDAO:
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Delete element (points will be cascade deleted by foreign key constraint)
             cursor.execute('DELETE FROM pixel_color_elements WHERE id = ?', (element_id,))
             conn.commit()
 
             return cursor.rowcount > 0
 
     @staticmethod
-    def row_to_element(row) -> PixelColorElementEntity:
+    def _row_to_element(row) -> PixelColorElementEntity:
         """Convert a database row to a PixelColorElement.
 
         Args:
@@ -176,9 +265,30 @@ class PixelColorElementDAO:
         return PixelColorElementEntity(
             id=row['id'],
             name=row['name'],
-            points_colors_json=row['points_colors_json'],
             tolerance=row['tolerance'],
             match_all=bool(row['match_all']),
             created_at=row['created_at'],
             updated_at=row['updated_at']
+        )
+        
+    @staticmethod
+    def _row_to_point(row) -> PixelColorPointEntity:
+        """Convert a database row to a PixelColorPointEntity.
+        
+        Args:
+            row: Database row (as a dict-like object)
+            
+        Returns:
+            PixelColorPointEntity instance
+        """
+        return PixelColorPointEntity(
+            id=row['id'],
+            element_id=row['element_id'],
+            point_x=row['point_x'],
+            point_y=row['point_y'],
+            total_width=row['total_width'],
+            total_height=row['total_height'],
+            color_r=row['color_r'],
+            color_g=row['color_g'],
+            color_b=row['color_b']
         ) 
