@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from diskcache import Cache
 
-from repository import CharacterDAO
+from repository.character_dao import CharacterDAO
 from .image_processor import ImageProcessor
 from .logging_config import get_logger
 from .models import Character

@@ -5,16 +5,10 @@ This module provides database access methods for ImageElement objects,
 handling serialization, deserialization, and CRUD operations.
 """
 
-import io
-import logging
-from pathlib import Path
 from typing import List, Optional
 
-from PIL import Image
-
 from log.config import get_logger
-
-from .conn import get_connection
+from .conn import get_db_connection
 from .image_element_dto import ImageElementDTO
 
 logger = get_logger(__name__)
@@ -22,31 +16,6 @@ logger = get_logger(__name__)
 
 class ImageElementRepository:
     """Repository for database operations on ImageElement entities."""
-
-    @staticmethod
-    def create_table() -> None:
-        """Create the image_elements table if it doesn't exist."""
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS image_elements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            region_x INTEGER NOT NULL,
-            region_y INTEGER NOT NULL,
-            region_width INTEGER NOT NULL,
-            region_height INTEGER NOT NULL,
-            region_total_width INTEGER NOT NULL,
-            region_total_height INTEGER NOT NULL,
-            image_data BLOB NOT NULL,
-            threshold REAL NOT NULL DEFAULT 0.8,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-
-        conn.commit()
 
     @staticmethod
     def save(dto: ImageElementDTO) -> ImageElementDTO:
@@ -58,7 +27,7 @@ class ImageElementRepository:
         Returns:
             The saved ImageElementDTO with ID populated
         """
-        conn = get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         if dto.id is None:
@@ -101,7 +70,7 @@ class ImageElementRepository:
         Returns:
             The ImageElementDTO if found, None otherwise
         """
-        conn = get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute('''
@@ -115,7 +84,10 @@ class ImageElementRepository:
         row = cursor.fetchone()
         if not row:
             return None
+        return ImageElementRepository.row_to_dto(row)
 
+    @staticmethod
+    def row_to_dto(row) -> ImageElementDTO:
         return ImageElementDTO(
             id=row[0],
             name=row[1],
@@ -141,7 +113,7 @@ class ImageElementRepository:
         Returns:
             The ImageElementDTO if found, None otherwise
         """
-        conn = get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute('''
@@ -156,20 +128,7 @@ class ImageElementRepository:
         if not row:
             return None
 
-        return ImageElementDTO(
-            id=row[0],
-            name=row[1],
-            region_x=row[2],
-            region_y=row[3],
-            region_width=row[4],
-            region_height=row[5],
-            region_total_width=row[6],
-            region_total_height=row[7],
-            image_data=row[8],
-            threshold=row[9],
-            created_at=row[10],
-            updated_at=row[11],
-        )
+        return ImageElementRepository.row_to_dto(row)
 
     @staticmethod
     def find_all() -> List[ImageElementDTO]:
@@ -178,7 +137,7 @@ class ImageElementRepository:
         Returns:
             List of all ImageElementDTOs
         """
-        conn = get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute('''
@@ -190,21 +149,7 @@ class ImageElementRepository:
 
         rows = cursor.fetchall()
         return [
-            ImageElementDTO(
-                id=row[0],
-                name=row[1],
-                region_x=row[2],
-                region_y=row[3],
-                region_width=row[4],
-                region_height=row[5],
-                region_total_width=row[6],
-                region_total_height=row[7],
-                image_data=row[8],
-                threshold=row[9],
-                created_at=row[10],
-                updated_at=row[11],
-            )
-            for row in rows
+            ImageElementRepository.row_to_dto(row) for row in rows
         ]
 
     @staticmethod
@@ -217,7 +162,7 @@ class ImageElementRepository:
         Returns:
             True if successful, False otherwise
         """
-        conn = get_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute('DELETE FROM image_elements WHERE id = ?', (element_id,))

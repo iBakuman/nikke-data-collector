@@ -9,20 +9,20 @@ in the game. It supports multiple detection methods including:
 
 Each element can be detected, clicked, and its state can be queried.
 """
-
+import io
 import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pyautogui
 from PIL import Image
 
 from log.config import get_logger
-
+from repository.image_element_dto import ImageElementDTO
 from .regions import Point, Region
 
 logger = get_logger(__name__)
@@ -116,7 +116,7 @@ class ImageElement(UIElement):
         self.debug_path = debug_path
 
     @classmethod
-    def from_dto(cls, dto: 'ImageElementDTO', debug_path: Optional[Path] = None) -> 'ImageElement':
+    def from_dto(cls, dto: ImageElementDTO, debug_path: Optional[Path] = None) -> 'ImageElement':
         """Create an ImageElement from a DTO object.
 
         This factory method converts a database-sourced DTO into a fully functional
@@ -132,9 +132,6 @@ class ImageElement(UIElement):
         Raises:
             ValueError: If the DTO contains invalid data
         """
-        # Import here to avoid circular imports
-        from repository.image_element_dto import ImageElementDTO
-
         if not isinstance(dto, ImageElementDTO):
             raise TypeError(f"Expected ImageElementDTO, got {type(dto).__name__}")
 
@@ -153,8 +150,6 @@ class ImageElement(UIElement):
         if not dto.image_data:
             raise ValueError("Image data is empty in DTO")
 
-        # Convert binary data to PIL Image
-        import io
         target_image = Image.open(io.BytesIO(dto.image_data))
 
         # Create and return new ImageElement
@@ -166,16 +161,12 @@ class ImageElement(UIElement):
             threshold=dto.threshold
         )
 
-    def to_dto(self) -> 'ImageElementDTO':
+    def to_dto(self) -> ImageElementDTO:
         """Convert this ImageElement to a DTO for database storage.
 
         Returns:
             An ImageElementDTO representing this element
         """
-        # Import here to avoid circular imports
-        # Convert image to binary data
-        import io
-
         from repository.image_element_dto import ImageElementDTO
         img_byte_arr = io.BytesIO()
         self.target_image.save(img_byte_arr, format='PNG')
@@ -237,6 +228,7 @@ class ImageElement(UIElement):
         # Resize image using LANCZOS for best quality
         return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
+
 class PixelColorElement(UIElement):
     """UI element detected by checking pixel colors."""
 
@@ -295,7 +287,7 @@ class PixelColorElement(UIElement):
                         return DetectionResult(found=False)
                     continue
 
-                r, g, b= screenshot.getpixel((x, y))
+                r, g, b = screenshot.getpixel((x, y))
 
                 # Check if the colors match within tolerance
                 if all(abs(int(a) - int(e)) <= self.tolerance for a, e in zip((r, g, b), expected_color)):
