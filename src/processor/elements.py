@@ -21,14 +21,13 @@ import numpy as np
 import pyautogui
 from PIL import Image
 
+from domain.color import Color
 from domain.image_element import ImageElementEntity
+from domain.pixel_element import PixelColorElementEntity
+from domain.regions import Point, Region
 from log.config import get_logger
-from .regions import Point, Region
 
 logger = get_logger(__name__)
-
-Color = Tuple[int, int, int]  # BGR color tuple
-
 
 @dataclass
 class DetectionResult:
@@ -251,6 +250,71 @@ class PixelColorElement(UIElement):
         self.points_colors = points_colors
         self.tolerance = tolerance
         self.match_all = match_all
+
+    @classmethod
+    def from_entity(cls, entity: PixelColorElementEntity) -> 'PixelColorElement':
+        """Create a PixelColorElement from a DTO object.
+
+        This factory method converts a database-sourced DTO into a fully functional
+        PixelColorElement instance.
+
+        Args:
+            entity: The PixelColorElement from the database
+
+        Returns:
+            A new PixelColorElement instance
+
+        Raises:
+            ValueError: If the DTO contains invalid data
+        """
+        # Get points_colors from entity
+        points_colors_data = entity.get_points_colors()
+
+        # Convert to the format needed by PixelColorElement
+        points_colors = []
+        for point_data, color_data in points_colors_data:
+            # Create Point object
+            point = Point(x=point_data[0], y=point_data[1],
+                         total_width=point_data[2], total_height=point_data[3])
+            # Create color tuple (r, g, b)
+            color = tuple(color_data)
+
+            points_colors.append((point, color))
+
+        # Create and return new PixelColorElement
+        return cls(
+            name=entity.name,
+            points_colors=points_colors,
+            tolerance=entity.tolerance,
+            match_all=entity.match_all
+        )
+
+    def to_dto(self) -> PixelColorElementEntity:
+        """Convert this PixelColorElement to a DTO for database storage.
+
+        Returns:
+            A PixelColorElementEntity representing this element
+        """
+        entity = PixelColorElementEntity(
+            name=self.name,
+            tolerance=self.tolerance,
+            match_all=self.match_all
+        )
+
+        # Convert points_colors to format needed by entity
+        points_colors_data = []
+        for point, color in self.points_colors:
+            # Create point tuple with coordinates and screen dimensions
+            point_data = (point.x, point.y, point.total_width, point.total_height)
+            # Create color tuple
+            color_data = color
+
+            points_colors_data.append((point_data, color_data))
+
+        # Set the points_colors in entity
+        entity.set_points_colors(points_colors_data)
+
+        return entity
 
     def detect(self, screenshot: Image.Image) -> DetectionResult:
         """Detect this element by checking pixel colors in the screenshot.

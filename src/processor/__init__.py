@@ -4,6 +4,7 @@ Automation processor package for NIKKE data collection.
 This package provides a framework for automating game interactions and data collection.
 """
 
+from domain.regions import Region
 from .collectors import (DataCollector, ImageCollector, NumberCollector,
                          OCRCollector)
 from .conditions import (ElementCondition, MultiCondition, StateCondition,
@@ -12,7 +13,6 @@ from .context import AutomationContext, Result
 from .controller import AutomationController
 from .elements import ImageElementEntity, TextElement, UIElement
 from .enums import CollectorType, RegionKey, StateType, StepId
-from .regions import Region
 from .states import ScreenState
 from .steps import (AutomationStep, CollectionStep, ConditionalStep,
                     InteractionStep, WaitStep)

@@ -10,9 +10,9 @@ from typing import Generic, TypeVar
 
 from PIL import Image
 
+from domain.regions import Region
 from .context import Result
 from .enums import CollectorType
-from .regions import Region
 
 T = TypeVar('T')  # Generic type for collected data
 
