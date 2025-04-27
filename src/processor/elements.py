@@ -15,14 +15,15 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pyautogui
 from PIL import Image
 
 from log.config import get_logger
-from .regions import Region, Point
+
+from .regions import Point, Region
 
 logger = get_logger(__name__)
 
@@ -113,6 +114,85 @@ class ImageElement(UIElement):
         self.threshold = threshold
         self._template: Optional[np.ndarray] = None
         self.debug_path = debug_path
+
+    @classmethod
+    def from_dto(cls, dto: 'ImageElementDTO', debug_path: Optional[Path] = None) -> 'ImageElement':
+        """Create an ImageElement from a DTO object.
+
+        This factory method converts a database-sourced DTO into a fully functional
+        ImageElement instance by loading the necessary resources.
+
+        Args:
+            dto: The ImageElementDTO from the database
+            debug_path: Optional path for debug images
+
+        Returns:
+            A new ImageElement instance
+
+        Raises:
+            ValueError: If the DTO contains invalid data
+        """
+        # Import here to avoid circular imports
+        from repository.image_element_dto import ImageElementDTO
+
+        if not isinstance(dto, ImageElementDTO):
+            raise TypeError(f"Expected ImageElementDTO, got {type(dto).__name__}")
+
+        # Create Region from DTO fields
+        region = Region(
+            name=dto.name,
+            start_x=dto.region_x,
+            start_y=dto.region_y,
+            width=dto.region_width,
+            height=dto.region_height,
+            total_width=dto.region_total_width,
+            total_height=dto.region_total_height
+        )
+
+        # Load image from binary data
+        if not dto.image_data:
+            raise ValueError("Image data is empty in DTO")
+
+        # Convert binary data to PIL Image
+        import io
+        target_image = Image.open(io.BytesIO(dto.image_data))
+
+        # Create and return new ImageElement
+        return cls(
+            name=dto.name,
+            region=region,
+            target_image=target_image,
+            debug_path=debug_path,
+            threshold=dto.threshold
+        )
+
+    def to_dto(self) -> 'ImageElementDTO':
+        """Convert this ImageElement to a DTO for database storage.
+
+        Returns:
+            An ImageElementDTO representing this element
+        """
+        # Import here to avoid circular imports
+        # Convert image to binary data
+        import io
+
+        from repository.image_element_dto import ImageElementDTO
+        img_byte_arr = io.BytesIO()
+        self.target_image.save(img_byte_arr, format='PNG')
+        image_data = img_byte_arr.getvalue()
+
+        # Create DTO with region data and image binary data
+        return ImageElementDTO(
+            name=self.name,
+            region_x=self.region.start_x,
+            region_y=self.region.start_y,
+            region_width=self.region.width,
+            region_height=self.region.height,
+            region_total_width=self.region.total_width,
+            region_total_height=self.region.total_height,
+            image_data=image_data,
+            threshold=self.threshold
+        )
 
     def detect(self, screenshot: Image.Image) -> DetectionResult:
         target_image = self._scale_image(self.target_image, self.region, screenshot)
