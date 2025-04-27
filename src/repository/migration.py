@@ -156,7 +156,6 @@ def migrate_database(db_path: Optional[Path] = None):
 
     # Open the database connection
     conn = get_db_connection(db_path)
-
     try:
         # Ensure migrations table exists
         init_migrations_table(conn)
@@ -164,17 +163,8 @@ def migrate_database(db_path: Optional[Path] = None):
         # Get already applied migrations
         applied = get_applied_migrations(conn)
 
-        # Find migrations in package resources
-        try:
-            migrations_dir = importlib.resources.files('collector.repository.data.migrations')
-            migrations = load_migrations_from_directory(migrations_dir)
-        except (ModuleNotFoundError, ImportError, ValueError) as e:
-            logger.warning(f"Could not load migrations from package: {e}")
-            # Fallback to local directory
-            migrations_dir = Path(__file__).parent / 'data' / 'migrations'
-            os.makedirs(migrations_dir, exist_ok=True)
-            migrations = load_migrations_from_directory(migrations_dir)
-
+        migrations_dir = importlib.resources.files('collector.repository.data.migrations')
+        migrations = load_migrations_from_directory(migrations_dir)
         # Apply pending migrations
         success_count = 0
         fail_count = 0
@@ -188,7 +178,6 @@ def migrate_database(db_path: Optional[Path] = None):
 
         logger.info(f"Database migration complete: {success_count} applied, {fail_count} failed")
         return (success_count, fail_count)
-
     finally:
         conn.close()
 
