@@ -52,34 +52,6 @@ class RegionKey(Enum):
     SKILL_DESCRIPTION = auto()
     EQUIPMENT_SLOTS = auto()
 
-
-class ElementType(Enum):
-    """
-    Types of UI elements.
-    
-    These types categorize the different kinds of UI elements that can be
-    detected and interacted with in the system.
-    """
-    
-    # Basic UI element types
-    BUTTON = auto()
-    TEXT = auto()
-    IMAGE = auto()
-    ICON = auto()
-    INDICATOR = auto()
-    SLIDER = auto()
-    CHECKBOX = auto()
-    
-    # Specialized element types
-    MENU_ITEM = auto()
-    TAB = auto()
-    DIALOG = auto()
-    LIST_ITEM = auto()
-    PROGRESS_BAR = auto()
-    INPUT_FIELD = auto()
-    DROPDOWN = auto()
-
-
 class StateType(Enum):
     """
     Types of screen states.

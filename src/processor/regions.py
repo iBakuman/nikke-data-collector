@@ -7,15 +7,10 @@ and detecting UI elements.
 """
 
 from dataclasses import dataclass
-from typing import (Callable, Dict, Optional, Protocol,
-                    Tuple)
 
-import numpy as np
-from PIL import Image
 from dataclass_wizard import JSONWizard
 
 from collector.mixin import JSONSerializableMixin
-from src.processor.enums import RegionKey
 
 
 @dataclass
@@ -24,6 +19,7 @@ class Point:
     y: int
     total_width: int
     total_height: int
+
 
 @dataclass
 class Region(JSONWizard, JSONSerializableMixin):

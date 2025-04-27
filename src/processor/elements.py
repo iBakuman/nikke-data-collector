@@ -52,18 +52,15 @@ class UIElement(ABC):
     def __init__(
             self,
             name: str,
-            element_type: ElementType,
             region: Optional[Region] = None,
     ):
         """Initialize a UI element.
 
         Args:
             name: Unique name for the element
-            element_type: Type of the element
-            region: Optional region to restrict detection (x, y, width, height)
+            region: Optional region to restrict detection
         """
         self.name = name
-        self.element_type = element_type
         self.region = region
         self.logger = logging.getLogger(f"UIElement.{name}")
 
@@ -106,6 +103,13 @@ class UIElement(ABC):
         return screenshot
 
 
+@dataclass
+class ImageRegion():
+    name: str
+    enclosing_region: Region
+    image: Image.Image
+
+
 class ImageElement(UIElement):
     """UI element detected by template matching."""
 
@@ -113,25 +117,21 @@ class ImageElement(UIElement):
             self,
             name: str,
             template_path: Union[str, Path],
-            element_type: ElementType,
             threshold: float = 0.8,
             region: Optional[Region] = None,
-            method: int = cv2.TM_CCOEFF_NORMED,
     ):
         """Initialize an image element.
 
         Args:
             name: Unique name for the element
             template_path: Path to the template image
-            element_type: Type of the element
             threshold: Confidence threshold for detection (0.0-1.0)
-            region: Optional region to restrict detection (x, y, width, height)
+            region: Optional region to restrict detection
             method: OpenCV template matching method
         """
-        super().__init__(name, element_type, region)
+        super().__init__(name, region)
         self.template_path = Path(template_path)
         self.threshold = threshold
-        self.method = method
         self._template: Optional[np.ndarray] = None
 
     @property
@@ -207,7 +207,6 @@ class PixelColorElement(UIElement):
     def __init__(
             self,
             name: str,
-            element_type: ElementType,
             points_colors: List[Tuple[Point, Color]],
             tolerance: int = 10,
             region: Optional[Region] = None,
@@ -217,13 +216,12 @@ class PixelColorElement(UIElement):
 
         Args:
             name: Unique name for the element
-            element_type: Type of the element
             points_colors: List of (point, color) tuples to check
             tolerance: Color matching tolerance (0-255)
-            region: Optional region to restrict detection (x, y, width, height)
+            region: Optional region to restrict detection
             match_all: If True, all points must match; otherwise, any match succeeds
         """
-        super().__init__(name, element_type, region)
+        super().__init__(name, region)
         self.points_colors = points_colors
         self.tolerance = tolerance
         self.match_all = match_all
@@ -265,8 +263,7 @@ class PixelColorElement(UIElement):
                 actual_color = screenshot[y, x]
 
                 # Check if the colors match within tolerance
-                if all(abs(int(a) - int(e)) <= self.tolerance
-                       for a, e in zip(actual_color, expected_color)):
+                if all(abs(int(a) - int(e)) <= self.tolerance for a, e in zip(actual_color, expected_color)):
                     matches += 1
                     if not self.match_all:
                         return DetectionResult(found=True, bounds=bounds)
@@ -290,7 +287,6 @@ class TextElement(UIElement):
             self,
             name: str,
             text: str,
-            element_type: ElementType,
             region: Optional[Region] = None,
             case_sensitive: bool = False,
             exact_match: bool = False,
@@ -300,12 +296,11 @@ class TextElement(UIElement):
         Args:
             name: Unique name for the element
             text: Text to search for
-            element_type: Type of the element
-            region: Optional region to restrict detection (x, y, width, height)
+            region: Optional region to restrict detection
             case_sensitive: Whether text matching is case-sensitive
             exact_match: If True, the text must match exactly; otherwise, partial matches count
         """
-        super().__init__(name, element_type, region)
+        super().__init__(name, region)
         self.text = text
         self.case_sensitive = case_sensitive
         self.exact_match = exact_match
