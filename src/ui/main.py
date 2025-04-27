@@ -26,19 +26,22 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(820, 440)
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        MainWindow.resize(336, 457)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
         MainWindow.setSizePolicy(sizePolicy)
-        MainWindow.setMinimumSize(QSize(330, 440))
+        MainWindow.setMinimumSize(QSize(0, 0))
         MainWindow.setMaximumSize(QSize(16777215, 16777215))
         self.actionAbout = QAction(MainWindow)
         self.actionAbout.setObjectName(u"actionAbout")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.centralwidget.setEnabled(True)
+        sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
+        self.centralwidget.setSizePolicy(sizePolicy)
+        self.centralwidget.setMinimumSize(QSize(0, 0))
         self.appLayout = QVBoxLayout(self.centralwidget)
         self.appLayout.setObjectName(u"appLayout")
         self.gridLayout_2 = QGridLayout()
@@ -116,30 +119,32 @@ class Ui_MainWindow(object):
         self.frame.setFrameShadow(QFrame.Shadow.Raised)
         self.verticalLayout_4 = QVBoxLayout(self.frame)
         self.verticalLayout_4.setObjectName(u"verticalLayout_4")
+        self.verticalLayout_4.setContentsMargins(0, 0, 0, -1)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.groupBox = QGroupBox(self.frame)
         self.groupBox.setObjectName(u"groupBox")
+        self.groupBox.setStyleSheet(u"QGroupBox {\n"
+"    border: none;\n"
+"    margin-top: 0px;\n"
+"}\n"
+"")
         self.verticalLayout_2 = QVBoxLayout(self.groupBox)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_2.addItem(self.verticalSpacer)
 
-        self.radioButton_2 = QRadioButton(self.groupBox)
-        self.radioButton_2.setObjectName(u"radioButton_2")
+        self.collectRadioBtn = QRadioButton(self.groupBox)
+        self.collectRadioBtn.setObjectName(u"collectRadioBtn")
 
-        self.verticalLayout_2.addWidget(self.radioButton_2)
+        self.verticalLayout_2.addWidget(self.collectRadioBtn)
 
-        self.radioButton = QRadioButton(self.groupBox)
-        self.radioButton.setObjectName(u"radioButton")
+        self.toolsRadioBtn = QRadioButton(self.groupBox)
+        self.toolsRadioBtn.setObjectName(u"toolsRadioBtn")
 
-        self.verticalLayout_2.addWidget(self.radioButton)
-
-        self.radioButton_3 = QRadioButton(self.groupBox)
-        self.radioButton_3.setObjectName(u"radioButton_3")
-
-        self.verticalLayout_2.addWidget(self.radioButton_3)
+        self.verticalLayout_2.addWidget(self.toolsRadioBtn)
 
         self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
@@ -148,14 +153,31 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout.addWidget(self.groupBox)
 
-        self.stackedWidgetPages = QStackedWidget(self.frame)
-        self.stackedWidgetPages.setObjectName(u"stackedWidgetPages")
+        self.pagesWidget = QStackedWidget(self.frame)
+        self.pagesWidget.setObjectName(u"pagesWidget")
+        self.pagesWidget.setStyleSheet(u"QGroupBox {\n"
+"    border: none;\n"
+"    margin-top: 0px;\n"
+"}\n"
+"")
         self.pageDataCollection = QWidget()
         self.pageDataCollection.setObjectName(u"pageDataCollection")
+        self.pageDataCollection.setStyleSheet(u"QGroupBox {\n"
+"    border: none;\n"
+"    margin-top: 0px;\n"
+"}\n"
+"")
         self.verticalLayout = QVBoxLayout(self.pageDataCollection)
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.groupBox_2 = QGroupBox(self.pageDataCollection)
         self.groupBox_2.setObjectName(u"groupBox_2")
+        self.groupBox_2.setStyleSheet(u"QGroupBox {\n"
+"    border: none;\n"
+"    margin-top: 0px;\n"
+"}\n"
+"")
+        self.groupBox_2.setFlat(True)
         self.verticalLayout_3 = QVBoxLayout(self.groupBox_2)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.crawl_players_btn = QRadioButton(self.groupBox_2)
@@ -196,15 +218,24 @@ class Ui_MainWindow(object):
 
         self.verticalLayout.addWidget(self.groupBox_2)
 
-        self.stackedWidgetPages.addWidget(self.pageDataCollection)
-        self.pageScreenshot = QWidget()
-        self.pageScreenshot.setObjectName(u"pageScreenshot")
-        self.label_4 = QLabel(self.pageScreenshot)
-        self.label_4.setObjectName(u"label_4")
-        self.label_4.setGeometry(QRect(120, 80, 41, 16))
-        self.stackedWidgetPages.addWidget(self.pageScreenshot)
+        self.pagesWidget.addWidget(self.pageDataCollection)
+        self.pageTools = QWidget()
+        self.pageTools.setObjectName(u"pageTools")
+        self.verticalLayout_5 = QVBoxLayout(self.pageTools)
+        self.verticalLayout_5.setObjectName(u"verticalLayout_5")
+        self.crawlCheerBtn = QPushButton(self.pageTools)
+        self.crawlCheerBtn.setObjectName(u"crawlCheerBtn")
 
-        self.horizontalLayout.addWidget(self.stackedWidgetPages)
+        self.verticalLayout_5.addWidget(self.crawlCheerBtn)
+
+        self.crawlGroupBtn = QPushButton(self.pageTools)
+        self.crawlGroupBtn.setObjectName(u"crawlGroupBtn")
+
+        self.verticalLayout_5.addWidget(self.crawlGroupBtn)
+
+        self.pagesWidget.addWidget(self.pageTools)
+
+        self.horizontalLayout.addWidget(self.pagesWidget)
 
         self.horizontalLayout.setStretch(1, 1)
 
@@ -221,7 +252,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 820, 33))
+        self.menubar.setGeometry(QRect(0, 0, 336, 33))
         self.helpMenu = QMenu(self.menubar)
         self.helpMenu.setObjectName(u"helpMenu")
         MainWindow.setMenuBar(self.menubar)
@@ -231,7 +262,7 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
 
-        self.stackedWidgetPages.setCurrentIndex(0)
+        self.pagesWidget.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -255,9 +286,8 @@ class Ui_MainWindow(object):
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"MAX", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"MIN", None))
         self.groupBox.setTitle("")
-        self.radioButton_2.setText(QCoreApplication.translate("MainWindow", u"Collect Data", None))
-        self.radioButton.setText(QCoreApplication.translate("MainWindow", u"Tools", None))
-        self.radioButton_3.setText(QCoreApplication.translate("MainWindow", u"Settings", None))
+        self.collectRadioBtn.setText(QCoreApplication.translate("MainWindow", u"Collect Data", None))
+        self.toolsRadioBtn.setText(QCoreApplication.translate("MainWindow", u"Tools", None))
         self.groupBox_2.setTitle("")
         self.crawl_players_btn.setText(QCoreApplication.translate("MainWindow", u"64 Players", None))
         self.crawl_64_32_btn.setText(QCoreApplication.translate("MainWindow", u"Round of 64 \u2192 32", None))
@@ -266,7 +296,8 @@ class Ui_MainWindow(object):
         self.crawl_8_4_btn.setText(QCoreApplication.translate("MainWindow", u"Round of  8 \u2192 4", None))
         self.crawl_4_2_btn.setText(QCoreApplication.translate("MainWindow", u"Round of  4 \u2192 2", None))
         self.crawl_2_1_btn.setText(QCoreApplication.translate("MainWindow", u"Round of  2 \u2192 1", None))
-        self.label_4.setText(QCoreApplication.translate("MainWindow", u"empty", None))
+        self.crawlCheerBtn.setText(QCoreApplication.translate("MainWindow", u"Crawl cheer screenshot", None))
+        self.crawlGroupBtn.setText(QCoreApplication.translate("MainWindow", u"Crawl group screenshot", None))
         self.startBtn.setText(QCoreApplication.translate("MainWindow", u"Link Start", None))
         self.helpMenu.setTitle(QCoreApplication.translate("MainWindow", u"Help", None))
     # retranslateUi

@@ -77,12 +77,22 @@ class MainWindow(QMainWindow):
         self.ui.startBtn.clicked.connect(self._on_confirm)
         self.path_selector.pathChanged.connect(self._on_path_changed)
         self.ui.languageComboBox.currentIndexChanged.connect(self._on_language_changed)
+        self.ui.collectRadioBtn.toggled.connect(self._show_collect_data_page)
+        self.ui.toolsRadioBtn.toggled.connect(self._show_tools_page)
 
         # Set up About menu
         self._setup_about_menu()
 
         # Clear focus from all widgets
         self.setFocus()
+
+    def _show_collect_data_page(self, checked: bool):
+        if checked:
+            self.ui.pagesWidget.setCurrentIndex(0)
+
+    def  _show_tools_page(self, checked: bool):
+        if checked:
+            self.ui.pagesWidget.setCurrentIndex(1)
 
     def _apply_saved_config(self):
         """Apply saved configuration to UI elements"""
@@ -430,13 +440,17 @@ class MainWindow(QMainWindow):
         about_dialog = AboutWindow(self)
         about_dialog.exec()
 
+    def resizeEvent(self, event, /):
+        super().resizeEvent(event)
+        self.adjustSize()
+        self.setFixedSize(self.minimumSize())
 
 class App:
     def __init__(self):
         """Initialize the main application"""
         # Create application
         self.app = QApplication([])
-        qdarktheme.setup_theme()
+        qdarktheme.setup_theme('light')
         # Store app instance for easy access from other parts of the program
         self.app.parent_app = self
         # set_app_theme(self.app)
@@ -507,9 +521,7 @@ class App:
         os.kill(os.getpid(), signal.SIGINT)
 
     def run(self) -> int:
-        """Run the application"""
         self.window.show()
-        # Clear focus from all controls after showing window
         self.window.setFocus()
         return self.app.exec()
 
