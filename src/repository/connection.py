@@ -1,5 +1,4 @@
 # Default database name
-import os
 import sqlite3
 from importlib.resources import files, as_file
 from pathlib import Path
@@ -8,31 +7,6 @@ from typing import Optional
 from log.config import get_logger
 
 logger = get_logger(__name__)
-
-DEFAULT_DB_NAME = 'nikke.db'
-
-
-def get_db_path(db_name: Optional[str] = None) -> Path:
-    """
-    Get the path to the SQLite database file
-
-    Args:
-        db_name: Name of the database file
-
-    Returns:
-        Path object representing the database file path
-    """
-    if db_name is None:
-        db_name = DEFAULT_DB_NAME
-
-    try:
-        # Try to get the path from the package resources (for installed package)
-        return as_file(files('collector.repository.data') / db_name)
-    except (ModuleNotFoundError, ImportError, ValueError):
-        # Fallback to a local path for development
-        data_dir = Path(__file__).parent / 'data'
-        os.makedirs(data_dir, exist_ok=True)
-        return data_dir / db_name
 
 
 class DBConnection:
@@ -48,7 +22,7 @@ class DBConnection:
         Args:
             db_path: Path to the database file, or None to use default
         """
-        self.db_path = db_path if db_path is not None else get_db_path()
+        self.db_path = db_path
         self.conn = None
 
     def __enter__(self) -> sqlite3.Connection:
@@ -57,8 +31,11 @@ class DBConnection:
         Returns:
             The SQLite connection object
         """
-        # Enable foreign key constraints
-        self.conn = sqlite3.connect(str(self.db_path))
+        if self.db_path is None:
+            with as_file(files('collector.repository.data') / 'nikke.db') as p:
+                self.conn = sqlite3.connect(str(p))
+        else:
+            self.conn = sqlite3.connect(str(self.db_path))
         self.conn.execute("PRAGMA foreign_keys = ON")
         # Configure connection to return rows as dictionaries
         self.conn.row_factory = sqlite3.Row

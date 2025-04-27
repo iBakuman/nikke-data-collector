@@ -9,7 +9,6 @@ from PIL import Image
 
 from domain.character import Character
 from log.config import get_logger
-from .connection import get_db_connection, get_db_path
 
 logger = get_logger(__name__)
 
@@ -27,7 +26,7 @@ class CharacterDAO:
         Args:
             db_path: Path to the SQLite database file
         """
-        self.db_path = db_path if db_path is not None else get_db_path()
+        self.db_path = db_path
 
     def add_character(self, character_id: str, chinese_name: str,
                      japanese_name: Optional[str] = None,
