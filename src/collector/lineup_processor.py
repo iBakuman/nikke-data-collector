@@ -3,9 +3,10 @@ from typing import List, Optional
 from PIL import Image
 
 from collector.profile_collector import ProfileCollector
+from repository.character_dto import Character
 from .character_matcher import CharacterMatcher
 from .logging_config import get_logger
-from .models import Character, Round, User
+from .models import Round, User
 from .mouse_control import MouseController
 from .ui_def import TEAM_INFO
 from .window_capturer import WindowCapturer

@@ -3,10 +3,11 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Annotated, Dict, List, Optional
 
-from dataclass_wizard import JSONPyWizard, JSONWizard, json_key
 from PIL import Image
+from dataclass_wizard import JSONPyWizard, JSONWizard, json_key
 
 from collector.mixin import JSONSerializableMixin
+from repository.character_dto import Character
 
 
 class ServerRegion(Enum):
@@ -74,19 +75,6 @@ class ChargeValues:
             # For simplicity, we'll return high_speed / 1.5
             return self.high_speed / 1.5
         return 0.0
-
-
-@dataclass
-class Character(JSONWizard, JSONSerializableMixin):
-    class _(JSONPyWizard.Meta):
-        skip_defaults = True
-
-    id: str = None
-    name: str = None
-    position: int = None
-    weapon_type: Optional[WeaponType] = None
-    charge_values: Optional[ChargeValues] = None
-    image: Annotated[Optional[Image.Image], json_key("excluded", dump=False)] = None
 
 
 @dataclass

@@ -10,7 +10,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from .character_matcher import CharacterMatcher, MatchResult
-from repository import CharacterDAO
 from .image_processor import ImageProcessor
 
 
@@ -18,5 +17,4 @@ __all__ = [
     'CharacterMatcher',
     'MatchResult',
     'ImageProcessor',
-    'CharacterDAO',
 ]

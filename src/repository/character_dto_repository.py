@@ -7,11 +7,11 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from collector.models import Character
+from .character_dto import Character
 from .conn import get_db_connection, get_db_path
 
 
-class CharacterDAO:
+class CharacterDTORepository:
     """
     Data Access Object for character data in SQLite database.
     Handles CRUD operations for characters and their images.
@@ -502,3 +502,5 @@ class CharacterDAO:
             img = img.convert('RGB')
 
         return img
+
+

@@ -9,7 +9,7 @@ from importlib.abc import Traversable
 from pathlib import Path
 from typing import List, Optional, Set, Tuple, Union
 
-from .character_dao import CharacterDAO
+from .character_dto_repository import CharacterDTORepository
 from .conn import get_db_connection, get_db_path
 
 # Configure logging
@@ -258,7 +258,7 @@ class DatabaseMigrationHelper:
         Args:
             db_path: Path to the SQLite database file (optional)
         """
-        self.character_dao = CharacterDAO(db_path)
+        self.character_dao = CharacterDTORepository(db_path)
 
     def migrate_from_directory(self, directory_path: Optional[str] = None,
                               patterns: Optional[List[str]] = None) -> Tuple[int, int]:

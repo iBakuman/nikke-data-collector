@@ -5,10 +5,10 @@ import numpy as np
 from PIL import Image
 from diskcache import Cache
 
-from repository.character_dao import CharacterDAO
+from repository.character_dto import Character
+from repository.character_dto_repository import CharacterDTORepository
 from .image_processor import ImageProcessor
 from .logging_config import get_logger
-from .models import Character
 
 logger = get_logger(__name__)
 
@@ -32,7 +32,7 @@ class CharacterMatcher:
     """
 
     def __init__(self,
-                 cache_dir: str, character_dao: CharacterDAO,
+                 cache_dir: str, character_dao: CharacterDTORepository,
                  similarity_threshold: Optional[float] = None,
                  cache_size_limit: int = int(1e9)):
         """
