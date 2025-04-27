@@ -21,7 +21,7 @@ import numpy as np
 import pyautogui
 from PIL import Image
 
-from domain.image_element import ImageElement
+from domain.image_element import ImageElementEntity
 from log.config import get_logger
 from .regions import Point, Region
 
@@ -116,14 +116,14 @@ class ImageElement(UIElement):
         self.debug_path = debug_path
 
     @classmethod
-    def from_dto(cls, dto: ImageElement, debug_path: Optional[Path] = None) -> 'ImageElement':
+    def from_entity(cls, entity: ImageElementEntity, debug_path: Optional[Path] = None) -> 'ImageElement':
         """Create an ImageElement from a DTO object.
 
         This factory method converts a database-sourced DTO into a fully functional
         ImageElement instance by loading the necessary resources.
 
         Args:
-            dto: The ImageElement from the database
+            entity: The ImageElement from the database
             debug_path: Optional path for debug images
 
         Returns:
@@ -132,48 +132,48 @@ class ImageElement(UIElement):
         Raises:
             ValueError: If the DTO contains invalid data
         """
-        if not isinstance(dto, ImageElement):
-            raise TypeError(f"Expected ImageElement, got {type(dto).__name__}")
+        if not isinstance(entity, ImageElementEntity):
+            raise TypeError(f"Expected ImageElement, got {type(entity).__name__}")
 
         # Create Region from DTO fields
         region = Region(
-            name=dto.name,
-            start_x=dto.region_x,
-            start_y=dto.region_y,
-            width=dto.region_width,
-            height=dto.region_height,
-            total_width=dto.region_total_width,
-            total_height=dto.region_total_height
+            name=entity.name,
+            start_x=entity.region_x,
+            start_y=entity.region_y,
+            width=entity.region_width,
+            height=entity.region_height,
+            total_width=entity.region_total_width,
+            total_height=entity.region_total_height
         )
 
         # Load image from binary data
-        if not dto.image_data:
+        if not entity.image_data:
             raise ValueError("Image data is empty in DTO")
 
-        target_image = Image.open(io.BytesIO(dto.image_data))
+        target_image = Image.open(io.BytesIO(entity.image_data))
 
         # Create and return new ImageElement
         return cls(
-            name=dto.name,
+            name=entity.name,
             region=region,
             target_image=target_image,
             debug_path=debug_path,
-            threshold=dto.threshold
+            threshold=entity.threshold
         )
 
-    def to_dto(self) -> ImageElement:
+    def to_dto(self) -> ImageElementEntity:
         """Convert this ImageElement to a DTO for database storage.
 
         Returns:
             An ImageElement representing this element
         """
-        from domain.image_element import ImageElement
+        from domain.image_element import ImageElementEntity
         img_byte_arr = io.BytesIO()
         self.target_image.save(img_byte_arr, format='PNG')
         image_data = img_byte_arr.getvalue()
 
         # Create DTO with region data and image binary data
-        return ImageElement(
+        return ImageElementEntity(
             name=self.name,
             region_x=self.region.start_x,
             region_y=self.region.start_y,

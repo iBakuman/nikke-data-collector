@@ -6,7 +6,7 @@ This module provides database operations for ImageElement entities.
 
 from typing import List, Optional
 
-from domain.image_element import ImageElement
+from domain.image_element import ImageElementEntity
 from log.config import get_logger
 from .connection import get_db_connection
 
@@ -41,7 +41,7 @@ class ImageElementDAO:
             conn.commit()
 
     @staticmethod
-    def save(element: ImageElement) -> ImageElement:
+    def save(element: ImageElementEntity) -> ImageElementEntity:
         """Save an ImageElement to the database.
 
         Args:
@@ -84,7 +84,7 @@ class ImageElementDAO:
             return element
 
     @staticmethod
-    def find_by_id(element_id: int) -> Optional[ImageElement]:
+    def find_by_id(element_id: int) -> Optional[ImageElementEntity]:
         """Find an ImageElement by its ID.
 
         Args:
@@ -111,7 +111,7 @@ class ImageElementDAO:
             return ImageElementDAO.row_to_element(row)
 
     @staticmethod
-    def find_by_name(name: str) -> Optional[ImageElement]:
+    def find_by_name(name: str) -> Optional[ImageElementEntity]:
         """Find an ImageElement by its name.
 
         Args:
@@ -138,7 +138,7 @@ class ImageElementDAO:
             return ImageElementDAO.row_to_element(row)
 
     @staticmethod
-    def find_all() -> List[ImageElement]:
+    def find_all() -> List[ImageElementEntity]:
         """Find all ImageElements in the database.
 
         Returns:
@@ -176,7 +176,7 @@ class ImageElementDAO:
             return cursor.rowcount > 0
 
     @staticmethod
-    def row_to_element(row) -> ImageElement:
+    def row_to_element(row) -> ImageElementEntity:
         """Convert a database row to an ImageElement.
 
         Args:
@@ -185,7 +185,7 @@ class ImageElementDAO:
         Returns:
             ImageElement instance
         """
-        return ImageElement(
+        return ImageElementEntity(
             id=row['id'],
             name=row['name'],
             region_x=row['region_x'],

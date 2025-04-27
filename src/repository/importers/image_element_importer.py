@@ -11,14 +11,14 @@ from typing import Any, Dict, List, Optional
 
 from PIL import Image
 
-from domain.image_element import ImageElement
+from domain.image_element import ImageElementEntity
 from log.config import get_logger
 from .base_importer import DataImporter
 
 logger = get_logger(__name__)
 
 
-class ImageElementImporter(DataImporter[ImageElement]):
+class ImageElementImporter(DataImporter[ImageElementEntity]):
     """Importer for ImageElement data from files and directories."""
 
     def __init__(self, default_threshold: float = 0.8):
@@ -29,7 +29,7 @@ class ImageElementImporter(DataImporter[ImageElement]):
         """
         self.default_threshold = default_threshold
 
-    def import_from_directory(self, directory_path: str) -> List[ImageElement]:
+    def import_from_directory(self, directory_path: str) -> List[ImageElementEntity]:
         """Import all image elements from a directory.
         
         Looks for images and an optional config.json file that contains region info.
@@ -77,7 +77,7 @@ class ImageElementImporter(DataImporter[ImageElement]):
 
         return result
 
-    def import_from_file(self, file_path: str) -> List[ImageElement]:
+    def import_from_file(self, file_path: str) -> List[ImageElementEntity]:
         """Import a single image element from a file.
         
         Args:
@@ -110,7 +110,7 @@ class ImageElementImporter(DataImporter[ImageElement]):
             logger.error(f"Failed to import image {file_path}: {e}")
             return []
 
-    def import_from_json(self, json_path: str) -> List[ImageElement]:
+    def import_from_json(self, json_path: str) -> List[ImageElementEntity]:
         """Import image elements from a JSON configuration.
         
         The JSON should contain a list of objects with 'image_path' and other properties.
@@ -180,7 +180,7 @@ class ImageElementImporter(DataImporter[ImageElement]):
         """
         return ['png', 'jpg', 'jpeg', 'bmp', 'gif', 'json']
 
-    def _import_image_file(self, image_path: Path, config: Dict[str, Any]) -> Optional[ImageElement]:
+    def _import_image_file(self, image_path: Path, config: Dict[str, Any]) -> Optional[ImageElementEntity]:
         """Internal helper to import a single image file with config.
         
         Args:
@@ -212,7 +212,7 @@ class ImageElementImporter(DataImporter[ImageElement]):
             threshold = config.get('threshold', self.default_threshold)
 
             # Create the DTO
-            return ImageElement(
+            return ImageElementEntity(
                 name=name,
                 region_x=region_x,
                 region_y=region_y,
