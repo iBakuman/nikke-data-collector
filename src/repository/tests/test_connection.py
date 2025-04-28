@@ -100,6 +100,7 @@ def test_explicit_commit_still_works():
         # Clean up temporary file
         os.unlink(temp_db.name)
 
+
 def test_exception_propagation():
     """Test that exceptions raised inside the context manager are properly propagated to the caller."""
     # Create temporary database file
@@ -141,6 +142,42 @@ def test_exception_propagation():
         with get_db_connection(db_path) as conn:
             count = conn.execute("SELECT COUNT(*) FROM test_table").fetchone()[0]
             assert count == 0, "Transaction should have been rolled back when exception was raised"
+
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)
+
+
+def test_commit_on_early_return():
+    """Test that changes are committed even when a function inside the context manager returns early."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # First connection: create a table
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)")
+
+        # Define a function that performs an insert and then returns early
+        def insert_and_return_early(db_file):
+            with get_db_connection(db_file) as conn:
+                conn.execute("INSERT INTO test_table (name) VALUES (?)", ("early_return_value",))
+                # Return immediately without explicit commit
+                return "Function returned early"
+
+        # Call the function that returns early inside the context manager
+        result = insert_and_return_early(db_path)
+        assert result == "Function returned early", "Function should have returned early"
+
+        # Verify that the data was still committed despite the early return
+        with get_db_connection(db_path) as conn:
+            result = conn.execute("SELECT name FROM test_table WHERE id = 1").fetchone()
+            assert result is not None, "Data should be committed even with early return"
+            assert result["name"] == "early_return_value", "Committed data should match inserted value"
+
     finally:
         # Clean up temporary file
         os.unlink(temp_db.name)
