@@ -99,3 +99,49 @@ def test_explicit_commit_still_works():
     finally:
         # Clean up temporary file
         os.unlink(temp_db.name)
+
+
+def test_exception_propagation():
+    """Test that exceptions raised inside the context manager are properly propagated to the caller."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # Create a test table
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)")
+
+        # Test that a SQL error is propagated
+        with pytest.raises(sqlite3.OperationalError) as excinfo:
+            with get_db_connection(db_path) as conn:
+                # Execute a query with a non-existent column
+                conn.execute("SELECT * FROM test_table WHERE INVALID_SYNTAX")
+
+        # Verify the error message contains information about the error
+        assert "no such column: invalid_syntax" in str(excinfo.value).lower(), "Exception message should indicate the column error"
+
+        # Test that a custom Python exception is also propagated
+        class CustomTestException(Exception):
+            """Custom exception for testing purposes."""
+            pass
+
+        with pytest.raises(CustomTestException) as excinfo:
+            with get_db_connection(db_path) as conn:
+                # This query will succeed
+                conn.execute("INSERT INTO test_table (name) VALUES (?)", ("test_value",))
+                # But then we raise a custom exception
+                raise CustomTestException("Test exception raised inside context manager")
+
+        # Verify the custom exception message
+        assert "test exception raised" in str(excinfo.value).lower()
+
+        # Verify that the transaction was rolled back due to the exception
+        with get_db_connection(db_path) as conn:
+            count = conn.execute("SELECT COUNT(*) FROM test_table").fetchone()[0]
+            assert count == 0, "Transaction should have been rolled back when exception was raised"
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)

@@ -9,6 +9,7 @@ from PIL import Image
 
 from domain.character import Character
 from log.config import get_logger
+from repository.connection import get_db_connection
 
 logger = get_logger(__name__)
 
@@ -43,9 +44,8 @@ class CharacterDAO:
         Returns:
             True if successful, False otherwise
         """
-        conn = get_db_connection(self.db_path)
         try:
-            with conn:
+            with get_db_connection(self.db_path) as conn:
                 conn.execute(
                     '''
                     INSERT INTO characters (id, english_name, japanese_name, chinese_name)
@@ -53,16 +53,13 @@ class CharacterDAO:
                     ''',
                     (character_id, english_name, japanese_name, chinese_name)
                 )
-            return True
         except sqlite3.IntegrityError:
-            # Character with this ID already exists
             logger.warning(f"Character with ID {character_id} already exists")
             return False
         except sqlite3.Error as e:
             logger.error(f"Error adding character: {e}")
             return False
-        finally:
-            conn.close()
+        return True
 
     def update_character(self, character_id: str, english_name: Optional[str] = None,
                         japanese_name: Optional[str] = None,
@@ -79,8 +76,6 @@ class CharacterDAO:
         Returns:
             True if successful, False if character not found
         """
-        conn = get_db_connection(self.db_path)
-
         # Build update query dynamically based on provided values
         updates = []
         params = []
@@ -99,28 +94,21 @@ class CharacterDAO:
 
         if not updates:
             # Nothing to update
-            conn.close()
             return False
-
         # Add character_id to params
         params.append(character_id)
-
-        try:
-            with conn:
-                cursor = conn.execute(
-                    f'''
-                    UPDATE characters
-                    SET {", ".join(updates)}
-                    WHERE id = ?
-                    ''',
-                    params
-                )
-
+        success = False
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute(
+                f'''
+                UPDATE characters
+                SET {", ".join(updates)}
+                WHERE id = ?
+                ''',
+                params
+            )
             success = cursor.rowcount > 0
-            return success
-        finally:
-            conn.close()
-
+        return success
     def delete_character(self, character_id: str) -> Optional[bool]:
         """
         Delete a character from the database
