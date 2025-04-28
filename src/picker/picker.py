@@ -381,13 +381,23 @@ class PickerApp(QObject):
 
             pil_image = capture_result.to_pil()
 
-            # Extract the template image
-            template_x, template_y = template_region.x(), template_region.y()
-            template_w, template_h = template_region.width(), template_region.height()
+            # Adjust regions to exclude borders (borders are 2px wide, so adjust by 1px on each side)
+            # For template region
+            template_x = template_region.x() + 1
+            template_y = template_region.y() + 1
+            template_w = template_region.width() - 2
+            template_h = template_region.height() - 2
 
+            # For detection region
+            detection_x = detection_region.x() + 1
+            detection_y = detection_region.y() + 1
+            detection_w = detection_region.width() - 2
+            detection_h = detection_region.height() - 2
+
+            # Extract the template image (excluding border)
             template_image = pil_image.crop((template_x, template_y,
-                                            template_x + template_w,
-                                            template_y + template_h))
+                                           template_x + template_w,
+                                           template_y + template_h))
 
             # Get name for the image element
             element_name, ok = QInputDialog.getText(
@@ -400,13 +410,13 @@ class PickerApp(QObject):
                 logger.info("User cancelled image element creation")
                 return
 
-            # Create ImageElementEntity
+            # Create ImageElementEntity with adjusted coordinates (excluding border)
             image_element = ImageElementEntity(
                 name=element_name,
-                region_x=detection_region.x(),
-                region_y=detection_region.y(),
-                region_width=detection_region.width(),
-                region_height=detection_region.height(),
+                region_x=detection_x,
+                region_y=detection_y,
+                region_width=detection_w,
+                region_height=detection_h,
                 region_total_width=pil_image.width,
                 region_total_height=pil_image.height,
                 threshold=0.8  # Default threshold
@@ -429,7 +439,7 @@ class PickerApp(QObject):
             screenshot_with_regions = pil_image.copy()
             draw = ImageDraw.Draw(screenshot_with_regions)
 
-            # Draw detection region (red)
+            # Draw detection region (red) - using original regions for visualization
             draw.rectangle(
                 (detection_region.x(), detection_region.y(),
                 detection_region.x() + detection_region.width(),
@@ -437,12 +447,29 @@ class PickerApp(QObject):
                 outline=(255, 0, 0), width=2, fill=None
             )
 
-            # Draw template region (green)
+            # Draw template region (green) - using original regions for visualization
             draw.rectangle(
                 (template_region.x(), template_region.y(),
                 template_region.x() + template_region.width(),
                 template_region.y() + template_region.height()),
                 outline=(0, 255, 0), width=2, fill=None
+            )
+
+            # Draw actual crop regions (blue for template, yellow for detection) to show what was actually captured
+            # Template actual region
+            draw.rectangle(
+                (template_x, template_y,
+                template_x + template_w,
+                template_y + template_h),
+                outline=(0, 0, 255), width=1, fill=None
+            )
+
+            # Detection actual region
+            draw.rectangle(
+                (detection_x, detection_y,
+                detection_x + detection_w,
+                detection_y + detection_h),
+                outline=(255, 255, 0), width=1, fill=None
             )
 
             # Save visualization
