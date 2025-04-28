@@ -310,7 +310,7 @@ class CharacterDAO:
             logger.error(f"Error retrieving images for character {character_id}: {e}")
         return []
 
-    def get_character_image(self, image_id: int) -> Optional[Tuple[bytes]]:
+    def get_character_image(self, image_id: int) -> Optional[bytes]:
         """
         Get a specific character image by ID
 
@@ -351,155 +351,9 @@ class CharacterDAO:
                     "DELETE FROM character_images WHERE id = ?",
                     (image_id,)
                 )
-
                 return cursor.rowcount > 0
         except sqlite3.Error as e:
             logger.error(f"Error deleting image {image_id}: {e}")
 
         return False
-
-    def get_all_character_image_hashes(self) -> Dict[str, List[str]]:
-        """
-        Get all character image hashes
-
-        Returns:
-            Dictionary mapping character IDs to lists of image hashes
-        """
-        conn = get_db_connection(self.db_path)
-
-        try:
-            cursor = conn.execute(
-                "SELECT character_id, image_hash FROM character_images"
-            )
-
-            result = {}
-            for row in cursor.fetchall():
-                char_id = row['character_id']
-                image_hash = row['image_hash']
-
-                if char_id not in result:
-                    result[char_id] = []
-
-                result[char_id].append(image_hash)
-
-            return result
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving all character image hashes: {e}")
-            return {}
-
-    def get_image_by_hash(self, image_hash: str) -> Optional[Tuple[str, bytes]]:
-        """
-        Get an image by its hash
-
-        Args:
-            image_hash: Hash of the image
-
-        Returns:
-            Tuple of (character_id, image_data) or None if not found
-        """
-        conn = get_db_connection(self.db_path)
-
-        try:
-            cursor = conn.execute(
-                '''
-                SELECT character_images.character_id, character_images.image_data
-                FROM character_images
-                WHERE image_hash = ?
-                ''',
-                (image_hash,)
-            )
-
-            row = cursor.fetchone()
-            if row:
-                return (row['character_id'], row['image_data'])
-            return None
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving image by hash: {e}")
-            return None
-        finally:
-            conn.close()
-
-    @staticmethod
-    def convert_blob_to_cv_image(blob_data: bytes) -> np.ndarray:
-        """
-        Convert binary blob data to OpenCV image format
-
-        Args:
-            blob_data: Binary image data
-
-        Returns:
-            OpenCV image (numpy array)
-        """
-        # Convert binary data to numpy array
-        nparr = np.frombuffer(blob_data, np.uint8)
-
-        # Decode image
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        return img
-
-    @staticmethod
-    def convert_blob_to_pil_image(blob_data: bytes) -> Image.Image:
-        """
-        Convert binary blob data to PIL image format
-
-        Args:
-            blob_data: Binary image data
-
-        Returns:
-            PIL Image object
-        """
-        # Create BytesIO object from blob data
-        buffer = io.BytesIO(blob_data)
-
-        # Open as PIL image
-        img = Image.open(buffer)
-
-        # Convert to RGB if necessary
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-
-        return img
-
-    @staticmethod
-    def initialize_database():
-        """Initialize the database with required tables."""
-        with get_db_connection() as conn:
-            # Create tables in a transaction
-            conn.execute('BEGIN TRANSACTION')
-            try:
-                # Create characters table
-                conn.execute('''
-                CREATE TABLE IF NOT EXISTS characters (
-                    id TEXT PRIMARY KEY,
-                    english_name TEXT,
-                    japanese_name TEXT,
-                    chinese_name TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                ''')
-
-                # Create character_images table
-                conn.execute('''
-                CREATE TABLE IF NOT EXISTS character_images (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    character_id TEXT NOT NULL,
-                    image_data BLOB NOT NULL,
-                    image_hash TEXT NOT NULL UNIQUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-                )
-                ''')
-
-                # Create indexes for performance
-                conn.execute('CREATE INDEX IF NOT EXISTS idx_character_images_character_id ON character_images(character_id)')
-                conn.execute('CREATE INDEX IF NOT EXISTS idx_character_images_image_hash ON character_images(image_hash)')
-
-                logger.info("Database schema initialized successfully")
-            except sqlite3.Error as e:
-                # An error occurred, rollback is automatic when using context manager
-                logger.error(f"Error initializing database schema: {e}")
-                # The context manager will handle rollback when an exception occurs
-                raise
-
 
