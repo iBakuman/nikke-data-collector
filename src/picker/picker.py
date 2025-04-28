@@ -1,5 +1,4 @@
 import io
-import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -158,13 +157,13 @@ class OverlayWidget(QWidget):
             # Draw template region if it exists
             if self.template_region and self.template_region.isValid():
                 painter.setPen(QPen(QColor(0, 255, 0), 2))  # Green for template
-                painter.setBrush(QColor(0, 255, 0, 40))  # Transparent green fill
+                painter.setBrush(Qt.BrushStyle.NoBrush)  # No fill
                 painter.drawRect(self.template_region)
 
             # Draw current selection rectangle
             if self.is_selecting and self.current_selection.isValid():
                 painter.setPen(QPen(QColor(255, 0, 0), 2))  # Red for current selection
-                painter.setBrush(QColor(255, 0, 0, 40))  # Transparent red fill
+                painter.setBrush(Qt.BrushStyle.NoBrush)  # No fill
                 painter.drawRect(self.current_selection)
 
 
@@ -424,8 +423,7 @@ class PickerApp(QObject):
 
             # Save element to JSON
             element_path = os.path.join(IMAGE_ELEMENTS_DIR, f"{element_name}.json")
-            with open(element_path, 'w') as f:
-                json.dump(image_element.to_dict(), f, indent=2)
+            image_element.save_as_json(element_path)
 
             # Draw visualization of detection region on full screenshot
             screenshot_with_regions = pil_image.copy()
@@ -436,7 +434,7 @@ class PickerApp(QObject):
                 (detection_region.x(), detection_region.y(),
                 detection_region.x() + detection_region.width(),
                 detection_region.y() + detection_region.height()),
-                outline=(255, 0, 0), width=2
+                outline=(255, 0, 0), width=2, fill=None
             )
 
             # Draw template region (green)
@@ -444,7 +442,7 @@ class PickerApp(QObject):
                 (template_region.x(), template_region.y(),
                 template_region.x() + template_region.width(),
                 template_region.y() + template_region.height()),
-                outline=(0, 255, 0), width=2
+                outline=(0, 255, 0), width=2, fill=None
             )
 
             # Save visualization
