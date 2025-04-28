@@ -4,6 +4,7 @@ Data Access Object for PixelColorElement.
 This module provides database operations for PixelColorElement entities.
 """
 
+import sqlite3
 from typing import List, Optional
 
 from domain.pixel_element import PixelColorElementEntity, PixelColorPointEntity
@@ -61,7 +62,6 @@ class PixelColorElementDAO:
         """
         with get_db_connection() as conn:
             cursor = conn.cursor()
-
             if element.id is None:
                 # Insert new record
                 cursor.execute('''
@@ -76,13 +76,13 @@ class PixelColorElementDAO:
                 # Update existing record
                 cursor.execute('''
                 UPDATE pixel_color_elements SET
-                    name = ?, tolerance = ?, match_all = ?, 
+                    name = ?, tolerance = ?, match_all = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 ''', (
                     element.name, element.tolerance, element.match_all, element.id
                 ))
-                
+
                 # Delete existing points to replace them
                 cursor.execute('DELETE FROM pixel_color_points WHERE element_id = ?', (element.id,))
 
@@ -127,7 +127,7 @@ class PixelColorElementDAO:
                 return None
 
             element = PixelColorElementDAO._row_to_element(element_row)
-            
+
             # Get all points for this element
             cursor.execute('''
             SELECT id, element_id, point_x, point_y, total_width, total_height,
@@ -135,7 +135,7 @@ class PixelColorElementDAO:
             FROM pixel_color_points
             WHERE element_id = ?
             ''', (element_id,))
-            
+
             point_rows = cursor.fetchall()
             for point_row in point_rows:
                 element.points.append(PixelColorElementDAO._row_to_point(point_row))
@@ -167,7 +167,7 @@ class PixelColorElementDAO:
                 return None
 
             element = PixelColorElementDAO._row_to_element(element_row)
-            
+
             # Get all points for this element
             cursor.execute('''
             SELECT id, element_id, point_x, point_y, total_width, total_height,
@@ -175,7 +175,7 @@ class PixelColorElementDAO:
             FROM pixel_color_points
             WHERE element_id = ?
             ''', (element.id,))
-            
+
             point_rows = cursor.fetchall()
             for point_row in point_rows:
                 element.points.append(PixelColorElementDAO._row_to_point(point_row))
@@ -200,33 +200,33 @@ class PixelColorElementDAO:
 
             element_rows = cursor.fetchall()
             elements = [PixelColorElementDAO._row_to_element(row) for row in element_rows]
-            
+
             # If no elements, return empty list
             if not elements:
                 return []
-                
+
             # Get all points for all elements in one query
             element_ids = [element.id for element in elements]
             placeholders = ','.join(['?'] * len(element_ids))
-            
+
             cursor.execute(f'''
             SELECT id, element_id, point_x, point_y, total_width, total_height,
                    color_r, color_g, color_b
             FROM pixel_color_points
             WHERE element_id IN ({placeholders})
             ''', element_ids)
-            
+
             point_rows = cursor.fetchall()
-            
+
             # Create a map from element_id to element for quick lookup
             element_map = {element.id: element for element in elements}
-            
+
             # Add points to their respective elements
             for point_row in point_rows:
                 point = PixelColorElementDAO._row_to_point(point_row)
                 if point.element_id in element_map:
                     element_map[point.element_id].points.append(point)
-            
+
             return elements
 
     @staticmethod
@@ -239,12 +239,15 @@ class PixelColorElementDAO:
         Returns:
             True if successful, False otherwise
         """
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Delete element (points will be cascade deleted by foreign key constraint)
-            cursor.execute('DELETE FROM pixel_color_elements WHERE id = ?', (element_id,))
-            return cursor.rowcount > 0
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                # Delete element (points will be cascade deleted by foreign key constraint)
+                cursor.execute('DELETE FROM pixel_color_elements WHERE id = ?', (element_id,))
+                return cursor.rowcount > 0
+        except sqlite3.Error as e:
+            logger.error(f"Error deleting pixel color element: {e}")
+            return False
 
     @staticmethod
     def _row_to_element(row) -> PixelColorElementEntity:
@@ -264,14 +267,14 @@ class PixelColorElementDAO:
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
-        
+
     @staticmethod
     def _row_to_point(row) -> PixelColorPointEntity:
         """Convert a database row to a PixelColorPointEntity.
-        
+
         Args:
             row: Database row (as a dict-like object)
-            
+
         Returns:
             PixelColorPointEntity instance
         """
@@ -285,4 +288,4 @@ class PixelColorElementDAO:
             color_r=row['color_r'],
             color_g=row['color_g'],
             color_b=row['color_b']
-        ) 
+        )
