@@ -10,8 +10,9 @@ from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PIL import ImageDraw
 from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
-from PySide6.QtWidgets import (QComboBox, QInputDialog, QLabel, QMessageBox,
-                               QPushButton, QToolBar, QWidget)
+from PySide6.QtWidgets import (QComboBox, QFrame, QInputDialog, QLabel,
+                               QMessageBox, QPushButton, QToolBar, QVBoxLayout,
+                               QWidget)
 
 from collector.logging_config import get_logger
 from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
@@ -32,6 +33,123 @@ IMAGE_ELEMENTS_DIR = os.path.join(OUTPUT_DIR, "image_elements")
 class SelectionMode(Enum):
     POINT = "Point Selection"
     REGION = "Region Selection"
+
+
+class CoordinateTooltip(QFrame):
+    """Tooltip that shows coordinates, color, and a magnified view of pixels around cursor."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        # Style the tooltip
+        self.setStyleSheet("""
+            QFrame {
+                background-color: rgba(0, 0, 0, 180);
+                color: white;
+                border-radius: 4px;
+                padding: 2px;
+            }
+            QLabel {
+                color: white;
+                font-size: 10px;
+                padding: 0px;
+            }
+        """)
+
+        # Create layout and labels
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(4, 4, 4, 4)
+        self.layout.setSpacing(2)
+
+        # Pixel magnifier area (will be drawn in paintEvent)
+        self.magnifier_widget = QWidget()
+        self.magnifier_widget.setFixedSize(150, 100)
+
+        # Info labels
+        self.pos_label = QLabel("X: 0, Y: 0")
+        self.color_label = QLabel("RGB: 0, 0, 0")
+
+        self.layout.addWidget(self.magnifier_widget)
+        self.layout.addWidget(self.pos_label)
+        self.layout.addWidget(self.color_label)
+
+        # Magnification settings
+        self.magnification = 5  # Each pixel becomes 5x5
+        self.area_size = 20     # Extract 20x20 pixels around cursor
+
+        # Pixel data
+        self.pixel_data = None
+        self.cursor_pos = (0, 0)
+        self.pixel_color = (0, 0, 0)
+
+        # Size of the tooltip
+        self.setFixedSize(170, 140)
+        self.hide()
+
+    def update_info(self, x: int, y: int, color: Tuple[int, int, int], pixels=None):
+        """Update tooltip with new coordinates, color and pixel data."""
+        self.cursor_pos = (x, y)
+        self.pixel_color = color
+        self.pixel_data = pixels
+
+        self.pos_label.setText(f"X: {x}, Y: {y}")
+        self.color_label.setText(f"RGB: {color[0]}, {color[1]}, {color[2]}")
+
+        # Update the magnifier widget
+        self.magnifier_widget.update()
+
+    def paintEvent(self, event):
+        """Draw the tooltip background and border."""
+        super().paintEvent(event)
+
+        # Draw magnified pixels if available
+        if self.pixel_data is not None:
+            painter = QPainter(self)
+
+            # Get drawing area
+            area_rect = self.magnifier_widget.geometry()
+
+            # Draw the background for the magnifier area
+            painter.fillRect(area_rect, QColor(30, 30, 30))
+
+            # Calculate pixel size and center position
+            pixel_size = self.magnification
+            center_x = area_rect.width() // 2
+            center_y = area_rect.height() // 2
+
+            # Draw the magnified pixels
+            for y, row in enumerate(self.pixel_data):
+                for x, color in enumerate(row):
+                    # Convert to QColor
+                    qcolor = QColor(*color)
+
+                    # Calculate position (centered on cursor)
+                    px = area_rect.x() + center_x + (x - self.area_size//2) * pixel_size
+                    py = area_rect.y() + center_y + (y - self.area_size//2) * pixel_size
+
+                    # Draw the magnified pixel
+                    painter.fillRect(px, py, pixel_size, pixel_size, qcolor)
+
+            # Draw crosshair lines
+            painter.setPen(QPen(QColor(255, 255, 0), 1, Qt.PenStyle.DashLine))
+
+            # Horizontal line at cursor position
+            painter.drawLine(
+                area_rect.x(), area_rect.y() + center_y,
+                area_rect.x() + area_rect.width(), area_rect.y() + center_y
+            )
+
+            # Vertical line at cursor position
+            painter.drawLine(
+                area_rect.x() + center_x, area_rect.y(),
+                area_rect.x() + center_x, area_rect.y() + area_rect.height()
+            )
+
+            # Draw border around magnifier area
+            painter.setPen(QPen(QColor(100, 100, 100), 1))
+            painter.drawRect(area_rect)
 
 
 class OverlayWidget(QWidget):
@@ -58,6 +176,30 @@ class OverlayWidget(QWidget):
         self.template_region = None  # First selection (image template)
         self.region_selection_step = 0  # 0: no selection, 1: template selected, 2: both regions selected
 
+        # Create coordinate tooltip
+        self.coord_tooltip = CoordinateTooltip()
+
+        # Store the last captured screenshot for color sampling
+        self.current_screenshot = None
+
+        # Window capturer reference (will be set from PickerApp)
+        self.window_capturer = None
+
+    def set_window_capturer(self, capturer):
+        """Set the window capturer for color sampling."""
+        self.window_capturer = capturer
+        # Capture initial screenshot
+        self.update_screenshot()
+
+    def update_screenshot(self):
+        """Update the current screenshot for color sampling."""
+        if self.window_capturer:
+            capture_result = self.window_capturer.capture_window()
+            if capture_result:
+                self.current_screenshot = capture_result.to_pil()
+                return True
+        return False
+
     def set_selection_mode(self, mode: SelectionMode):
         """Change the selection mode."""
         self.selection_mode = mode
@@ -65,6 +207,10 @@ class OverlayWidget(QWidget):
         self.template_region = None
         self.current_selection = QRect()
         self.update()
+
+        # Update screenshot when changing to region mode
+        if mode == SelectionMode.REGION:
+            self.update_screenshot()
 
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press events based on selection mode."""
@@ -81,14 +227,69 @@ class OverlayWidget(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """Update selection rectangle during mouse movement."""
-        if self.selection_mode == SelectionMode.REGION and self.is_selecting:
-            current_pos = event.position().toPoint()
-            self.current_selection = QRect(
-                self.selection_start,
-                current_pos
-            ).normalized()  # Normalized ensures width/height are positive
-            self.update()
+        current_pos = event.position().toPoint()
+
+        if self.selection_mode == SelectionMode.REGION:
+            # Update tooltip with position and color info
+            if self.current_screenshot:
+                x, y = current_pos.x(), current_pos.y()
+
+                # Only sample colors if coordinates are in bounds
+                if (0 <= x < self.current_screenshot.width and
+                    0 <= y < self.current_screenshot.height):
+                    try:
+                        # Get the central pixel color
+                        r, g, b = self.current_screenshot.getpixel((x, y))
+
+                        # Extract a region of pixels around the cursor
+                        area_size = 20  # 20x20 pixel area
+                        half_size = area_size // 2
+
+                        # Calculate boundaries to prevent sampling outside the image
+                        start_x = max(0, x - half_size)
+                        start_y = max(0, y - half_size)
+                        end_x = min(self.current_screenshot.width, x + half_size + 1)
+                        end_y = min(self.current_screenshot.height, y + half_size + 1)
+
+                        # Extract pixel data
+                        pixel_array = []
+                        for py in range(start_y, end_y):
+                            row = []
+                            for px in range(start_x, end_x):
+                                row.append(self.current_screenshot.getpixel((px, py)))
+                            pixel_array.append(row)
+
+                        # Update tooltip with all information
+                        self.coord_tooltip.update_info(x, y, (r, g, b), pixel_array)
+
+                        # Position tooltip below and to the right of cursor
+                        tooltip_pos = self.mapToGlobal(current_pos + QPoint(15, 15))
+                        self.coord_tooltip.move(tooltip_pos)
+                        self.coord_tooltip.show()
+                    except Exception as e:
+                        # Handle any issues accessing pixel data
+                        logger.warning(f"Error sampling pixel: {e}")
+                        self.coord_tooltip.hide()
+                else:
+                    self.coord_tooltip.hide()
+
+            # Update selection rectangle during dragging
+            if self.is_selecting:
+                self.current_selection = QRect(
+                    self.selection_start,
+                    current_pos
+                ).normalized()  # Normalized ensures width/height are positive
+                self.update()
+        else:
+            # Hide tooltip in point mode
+            self.coord_tooltip.hide()
+
         super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        """Hide tooltip when mouse leaves overlay."""
+        self.coord_tooltip.hide()
+        super().leaveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Finalize selection on mouse release."""
@@ -125,6 +326,9 @@ class OverlayWidget(QWidget):
             self.current_selection = QRect()
             self.update()
         super().mouseReleaseEvent(event)
+
+        # Hide tooltip on mouse release
+        self.coord_tooltip.hide()
 
     def set_points(self, points: List[Tuple[int, int, Tuple[int, int, int]]]):
         """Update the points to be drawn."""
@@ -309,6 +513,8 @@ class PickerApp(QObject):
         self.overlay.points_updated.connect(self.update_status_label)
         self.overlay.region_selected.connect(self.handle_region_selection)
         self.overlay.setGeometry(self.wm.start_x, self.wm.start_y, self.wm.width, self.wm.height)
+        # Set the window capturer for color sampling
+        self.overlay.set_window_capturer(self.wc)
         logger.info("--- Overlay window.show() called ---")
         self.overlay.show()
 
@@ -322,6 +528,8 @@ class PickerApp(QObject):
             if self.selection_mode == SelectionMode.POINT:
                 self.status_label.setText("Click on the game window overlay to capture points.")
             else:
+                # Update screenshot when switching to region mode
+                self.overlay.update_screenshot()
                 self.status_label.setText("First select the template image area, then select the detection region.")
 
             logger.info(f"Selection mode changed to: {self.selection_mode}")
