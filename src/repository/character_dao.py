@@ -1,8 +1,6 @@
-import functools
 import io
-import sqlite3
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -11,39 +9,9 @@ from PIL import Image
 from domain.character import Character
 from log.config import get_logger
 from repository.connection import get_db_connection
+from repository.decorator import db_operation
 
 logger = get_logger(__name__)
-
-# Define return type for the decorator
-T = TypeVar('T')
-
-
-def db_operation(default_return_value: Any = None):
-    """
-    Decorator for database operations that handles common exceptions.
-
-    Args:
-        default_return_value: Value to return if an exception occurs
-
-    Returns:
-        Decorated function
-    """
-    def decorator(func: Callable[..., T]) -> Callable[..., Optional[T]]:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except sqlite3.IntegrityError as e:
-                # Handle constraint violations (unique, foreign key, etc.)
-                logger.warning(f"{func.__name__} - IntegrityError: {e}")
-                return default_return_value
-            except sqlite3.Error as e:
-                # Handle other SQLite errors
-                logger.error(f"{func.__name__} - Database error: {e}")
-                return default_return_value
-        return wrapper
-    return decorator
-
 
 class CharacterDAO:
     """
@@ -84,7 +52,7 @@ class CharacterDAO:
                 ''',
                 (character_id, english_name, japanese_name, chinese_name)
             )
-        return True
+            return True
 
     @db_operation(default_return_value=False)
     def update_character(self, character_id: str, english_name: Optional[str] = None,
