@@ -1,7 +1,8 @@
+import functools
 import io
 import sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 import cv2
 import numpy as np
@@ -12,6 +13,36 @@ from log.config import get_logger
 from repository.connection import get_db_connection
 
 logger = get_logger(__name__)
+
+# Define return type for the decorator
+T = TypeVar('T')
+
+
+def db_operation(default_return_value: Any = None):
+    """
+    Decorator for database operations that handles common exceptions.
+
+    Args:
+        default_return_value: Value to return if an exception occurs
+
+    Returns:
+        Decorated function
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., Optional[T]]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except sqlite3.IntegrityError as e:
+                # Handle constraint violations (unique, foreign key, etc.)
+                logger.warning(f"{func.__name__} - IntegrityError: {e}")
+                return default_return_value
+            except sqlite3.Error as e:
+                # Handle other SQLite errors
+                logger.error(f"{func.__name__} - Database error: {e}")
+                return default_return_value
+        return wrapper
+    return decorator
 
 
 class CharacterDAO:
@@ -29,9 +60,10 @@ class CharacterDAO:
         """
         self.db_path = db_path
 
+    @db_operation(default_return_value=False)
     def add_character(self, character_id: str, chinese_name: str,
                      japanese_name: Optional[str] = None,
-                     english_name: Optional[str] = None) -> Optional[bool]:
+                     english_name: Optional[str] = None) -> bool:
         """
         Add a new character to the database
 
@@ -44,26 +76,20 @@ class CharacterDAO:
         Returns:
             True if successful, False otherwise
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                conn.execute(
-                    '''
-                    INSERT INTO characters (id, english_name, japanese_name, chinese_name)
-                    VALUES (?, ?, ?, ?)
-                    ''',
-                    (character_id, english_name, japanese_name, chinese_name)
-                )
-        except sqlite3.IntegrityError:
-            logger.warning(f"Character with ID {character_id} already exists")
-            return False
-        except sqlite3.Error as e:
-            logger.error(f"Error adding character: {e}")
-            return False
+        with get_db_connection(self.db_path) as conn:
+            conn.execute(
+                '''
+                INSERT INTO characters (id, english_name, japanese_name, chinese_name)
+                VALUES (?, ?, ?, ?)
+                ''',
+                (character_id, english_name, japanese_name, chinese_name)
+            )
         return True
 
+    @db_operation(default_return_value=False)
     def update_character(self, character_id: str, english_name: Optional[str] = None,
                         japanese_name: Optional[str] = None,
-                        chinese_name: Optional[str] = None) -> Optional[bool]:
+                        chinese_name: Optional[str] = None) -> bool:
         """
         Update an existing character in the database
 
@@ -97,7 +123,6 @@ class CharacterDAO:
             return False
         # Add character_id to params
         params.append(character_id)
-        success = False
         with get_db_connection(self.db_path) as conn:
             cursor = conn.execute(
                 f'''
@@ -107,9 +132,10 @@ class CharacterDAO:
                 ''',
                 params
             )
-            success = cursor.rowcount > 0
-        return success
-    def delete_character(self, character_id: str) -> Optional[bool]:
+            return cursor.rowcount > 0
+
+    @db_operation(default_return_value=False)
+    def delete_character(self, character_id: str) -> bool:
         """
         Delete a character from the database
 
@@ -119,23 +145,20 @@ class CharacterDAO:
         Returns:
             True if successful, False if character not found
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                # Delete related images first (foreign key constraint)
-                conn.execute(
-                    "DELETE FROM character_images WHERE character_id = ?",
-                    (character_id,)
-                )
-                # Delete the character
-                cursor = conn.execute(
-                    "DELETE FROM characters WHERE id = ?",
-                    (character_id,)
-                )
-                return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            logger.error(f"Error deleting character: {e}")
-        return False
+        with get_db_connection(self.db_path) as conn:
+            # Delete related images first (foreign key constraint)
+            conn.execute(
+                "DELETE FROM character_images WHERE character_id = ?",
+                (character_id,)
+            )
+            # Delete the character
+            cursor = conn.execute(
+                "DELETE FROM characters WHERE id = ?",
+                (character_id,)
+            )
+            return cursor.rowcount > 0
 
+    @db_operation(default_return_value=None)
     def get_character(self, character_id: str) -> Optional[Character]:
         """
         Get a character by ID
@@ -146,33 +169,28 @@ class CharacterDAO:
         Returns:
             Character object or None if not found
         """
-        conn = get_db_connection(self.db_path)
-
-        try:
-            with get_db_connection(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT * FROM characters WHERE id = ?",
-                    (character_id,)
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM characters WHERE id = ?",
+                (character_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                data = dict(row)
+                # Get preferred name based on available language versions
+                name = data.get('english_name', '')
+                if not name:  # If english_name is None or empty string
+                    name = data.get('japanese_name', '')
+                if not name:  # If japanese_name is also None or empty string
+                    name = data.get('chinese_name', '')
+                return Character(
+                    position=0,  # Default position
+                    id=data['id'],
+                    name=name
                 )
-                row = cursor.fetchone()
-                if row:
-                    data = dict(row)
-                    # Get preferred name based on available language versions
-                    name = data.get('english_name', '')
-                    if not name:  # If english_name is None or empty string
-                        name = data.get('japanese_name', '')
-                    if not name:  # If japanese_name is also None or empty string
-                        name = data.get('chinese_name', '')
-                    return Character(
-                        position=0,  # Default position
-                        id=data['id'],
-                        name=name
-                    )
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving character {character_id}: {e}")
-
         return None
 
+    @db_operation(default_return_value=None)
     def get_character_raw(self, character_id: str) -> Optional[Dict]:
         """
         Get raw character data by ID
@@ -183,21 +201,18 @@ class CharacterDAO:
         Returns:
             Character data as a dictionary, or None if not found
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT * FROM characters WHERE id = ?",
-                    (character_id,)
-                )
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM characters WHERE id = ?",
+                (character_id,)
+            )
 
-                row = cursor.fetchone()
-                if row:
-                    return dict(row)
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving character {character_id}: {e}")
-
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
         return None
 
+    @db_operation(default_return_value=None)
     def get_all_characters(self) -> Optional[List[Character]]:
         """
         Get all characters in the database
@@ -205,27 +220,24 @@ class CharacterDAO:
         Returns:
             List of Character objects
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                cursor = conn.execute("SELECT * FROM characters ORDER BY id")
-                result = []
-                for row in cursor.fetchall():
-                    data = dict(row)
-                    # Get preferred name based on available language versions
-                    name = data.get('english_name', '')
-                    if not name:  # If english_name is None or empty string
-                        name = data.get('japanese_name', '')
-                    if not name:  # If japanese_name is also None or empty string
-                        name = data.get('chinese_name', '')
-                    result.append(Character(
-                        id=data['id'],
-                        name=name
-                    ))
-                return result
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving all characters: {e}")
-        return None
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute("SELECT * FROM characters ORDER BY id")
+            result = []
+            for row in cursor.fetchall():
+                data = dict(row)
+                # Get preferred name based on available language versions
+                name = data.get('english_name', '')
+                if not name:  # If english_name is None or empty string
+                    name = data.get('japanese_name', '')
+                if not name:  # If japanese_name is also None or empty string
+                    name = data.get('chinese_name', '')
+                result.append(Character(
+                    id=data['id'],
+                    name=name
+                ))
+            return result
 
+    @db_operation(default_return_value=[])
     def get_all_characters_raw(self) -> List[Dict]:
         """
         Get raw data for all characters in the database
@@ -233,14 +245,11 @@ class CharacterDAO:
         Returns:
             List of character data dictionaries
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                cursor = conn.execute("SELECT * FROM characters ORDER BY id")
-                return [dict(row) for row in cursor.fetchall()]
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving all characters: {e}")
-        return []
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute("SELECT * FROM characters ORDER BY id")
+            return [dict(row) for row in cursor.fetchall()]
 
+    @db_operation(default_return_value=False)
     def add_character_image(self, character_id: str, image: Union[str, np.ndarray, Image.Image]) -> bool:
         """
         Add an image for a character
@@ -270,23 +279,17 @@ class CharacterDAO:
             image.save(buffer, format='PNG')
             image_data = buffer.getvalue()
 
-        try:
-            with get_db_connection(self.db_path) as conn:
-                conn.execute(
-                    '''
-                    INSERT INTO character_images (character_id, image_data)
-                    VALUES (?, ?)
-                    ''',
-                    (character_id, image_data)
-                )
-                return True
-        except sqlite3.IntegrityError:
-            # Character ID doesn't exist or hash collision
-            logger.warning(f"Cannot add image: character ID {character_id} not found or duplicate hash")
-        except sqlite3.Error as e:
-            logger.error(f"Database error adding character image: {e}")
-        return False
+        with get_db_connection(self.db_path) as conn:
+            conn.execute(
+                '''
+                INSERT INTO character_images (character_id, image_data)
+                VALUES (?, ?)
+                ''',
+                (character_id, image_data)
+            )
+            return True
 
+    @db_operation(default_return_value=[])
     def get_character_images(self, character_id: str) -> List[Tuple[int, bytes]]:
         """
         Get all images for a character
@@ -297,19 +300,14 @@ class CharacterDAO:
         Returns:
             List of tuples (image_id, image_data, image_hash)
         """
-        conn = get_db_connection(self.db_path)
-
-        try:
+        with get_db_connection(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT id, image_data FROM character_images WHERE character_id = ?",
                 (character_id,)
             )
-
             return [(row['id'], row['image_data']) for row in cursor.fetchall()]
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving images for character {character_id}: {e}")
-        return []
 
+    @db_operation(default_return_value=None)
     def get_character_image(self, image_id: int) -> Optional[bytes]:
         """
         Get a specific character image by ID
@@ -320,21 +318,17 @@ class CharacterDAO:
         Returns:
             Tuple of (image_data) or None if not found
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT image_data FROM character_images WHERE id = ?",
-                    (image_id,)
-                )
-
-                row = cursor.fetchone()
-                if row:
-                    return row['image_data']
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving image {image_id}: {e}")
-
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT image_data FROM character_images WHERE id = ?",
+                (image_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return row['image_data']
         return None
 
+    @db_operation(default_return_value=False)
     def delete_character_image(self, image_id: int) -> bool:
         """
         Delete a character image by ID
@@ -345,15 +339,10 @@ class CharacterDAO:
         Returns:
             True if successful, False if image not found
         """
-        try:
-            with get_db_connection(self.db_path) as conn:
-                cursor = conn.execute(
-                    "DELETE FROM character_images WHERE id = ?",
-                    (image_id,)
-                )
-                return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            logger.error(f"Error deleting image {image_id}: {e}")
-
-        return False
+        with get_db_connection(self.db_path) as conn:
+            cursor = conn.execute(
+                "DELETE FROM character_images WHERE id = ?",
+                (image_id,)
+            )
+            return cursor.rowcount > 0
 
