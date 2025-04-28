@@ -8,17 +8,18 @@ from typing import List, Optional
 
 from domain.image_element import ImageElementEntity
 from log.config import get_logger
-from .connection import get_db_connection
+from repository.base_dao import BaseDAO
+from repository.decorator import db_operation
 
 logger = get_logger(__name__)
 
-class ImageElementDAO:
+class ImageElementDAO(BaseDAO):
     """Data Access Object for ImageElement entities."""
 
-    @staticmethod
-    def create_table() -> None:
+    @db_operation()
+    def create_table(self) -> None:
         """Create the image_elements table if it doesn't exist."""
-        with get_db_connection() as conn:
+        def create_table_op(conn):
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -38,8 +39,10 @@ class ImageElementDAO:
             )
             ''')
 
-    @staticmethod
-    def save(element: ImageElementEntity) -> ImageElementEntity:
+        return self.with_connection(create_table_op)
+
+    @db_operation()
+    def save(self, element: ImageElementEntity) -> ImageElementEntity:
         """Save an ImageElement to the database.
 
         Args:
@@ -48,7 +51,7 @@ class ImageElementDAO:
         Returns:
             The saved ImageElement with ID populated
         """
-        with get_db_connection() as conn:
+        def save_element(conn):
             cursor = conn.cursor()
 
             if element.id is None:
@@ -80,8 +83,10 @@ class ImageElementDAO:
 
             return element
 
-    @staticmethod
-    def find_by_id(element_id: int) -> Optional[ImageElementEntity]:
+        return self.with_connection(save_element)
+
+    @db_operation(default_return_value=None)
+    def find_by_id(self, element_id: int) -> Optional[ImageElementEntity]:
         """Find an ImageElement by its ID.
 
         Args:
@@ -90,7 +95,7 @@ class ImageElementDAO:
         Returns:
             The ImageElement if found, None otherwise
         """
-        with get_db_connection() as conn:
+        def find_by_id_op(conn):
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -105,10 +110,12 @@ class ImageElementDAO:
             if not row:
                 return None
 
-            return ImageElementDAO.row_to_element(row)
+            return self.row_to_element(row)
 
-    @staticmethod
-    def find_by_name(name: str) -> Optional[ImageElementEntity]:
+        return self.with_connection(find_by_id_op)
+
+    @db_operation(default_return_value=None)
+    def find_by_name(self, name: str) -> Optional[ImageElementEntity]:
         """Find an ImageElement by its name.
 
         Args:
@@ -117,7 +124,7 @@ class ImageElementDAO:
         Returns:
             The ImageElement if found, None otherwise
         """
-        with get_db_connection() as conn:
+        def find_by_name_op(conn):
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -132,16 +139,18 @@ class ImageElementDAO:
             if not row:
                 return None
 
-            return ImageElementDAO.row_to_element(row)
+            return self.row_to_element(row)
 
-    @staticmethod
-    def find_all() -> List[ImageElementEntity]:
+        return self.with_connection(find_by_name_op)
+
+    @db_operation(default_return_value=[])
+    def find_all(self) -> List[ImageElementEntity]:
         """Find all ImageElements in the database.
 
         Returns:
             List of all ImageElements
         """
-        with get_db_connection() as conn:
+        def find_all_op(conn):
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -152,10 +161,12 @@ class ImageElementDAO:
             ''')
 
             rows = cursor.fetchall()
-            return [ImageElementDAO.row_to_element(row) for row in rows]
+            return [self.row_to_element(row) for row in rows]
 
-    @staticmethod
-    def delete(element_id: int) -> bool:
+        return self.with_connection(find_all_op)
+
+    @db_operation(default_return_value=False)
+    def delete(self, element_id: int) -> bool:
         """Delete an ImageElement by its ID.
 
         Args:
@@ -164,13 +175,14 @@ class ImageElementDAO:
         Returns:
             True if successful, False otherwise
         """
-        with get_db_connection() as conn:
+        def delete_op(conn):
             cursor = conn.cursor()
             cursor.execute('DELETE FROM image_elements WHERE id = ?', (element_id,))
             return cursor.rowcount > 0
 
-    @staticmethod
-    def row_to_element(row) -> ImageElementEntity:
+        return self.with_connection(delete_op)
+
+    def row_to_element(self, row) -> ImageElementEntity:
         """Convert a database row to an ImageElement.
 
         Args:
