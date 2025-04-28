@@ -9,9 +9,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+from dataclass_wizard import JSONWizard, JSONPyWizard
+
+from mixin.json import JSONSerializableMixin
+
 
 @dataclass
-class ImageElementEntity:
+class ImageElementEntity(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
+        
     """Database representation of an ImageElement."""
 
     id: Optional[int] = None  # Primary key, None for new records
