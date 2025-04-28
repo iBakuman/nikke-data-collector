@@ -100,7 +100,6 @@ def test_explicit_commit_still_works():
         # Clean up temporary file
         os.unlink(temp_db.name)
 
-
 def test_exception_propagation():
     """Test that exceptions raised inside the context manager are properly propagated to the caller."""
     # Create temporary database file
