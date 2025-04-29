@@ -83,6 +83,13 @@ class PixelColorElementEntity(JSONWizard, JSONSerializableMixin):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    @classmethod
+    def from_point_color(cls, point: Point, color: Color)->'PixelColorElementEntity':
+        return cls(
+            points=[PixelColorPointEntity.from_point_and_color(point, color)]
+        )
+
+
     def get_points_colors(self) -> List[tuple[Point, Color]]:
         """Get list of Point and Color pairs from stored entities.
         
