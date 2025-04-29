@@ -278,7 +278,7 @@ class PixelColorElement(UIElement):
             match_all=entity.match_all
         )
 
-    def to_dto(self) -> PixelColorElementEntity:
+    def to_entity(self) -> PixelColorElementEntity:
         """Convert this PixelColorElement to a DTO for database storage.
 
         Returns:

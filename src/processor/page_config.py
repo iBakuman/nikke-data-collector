@@ -5,26 +5,21 @@ This module provides classes and utilities for storing and loading
 page configurations from JSON files. Each page contains identifiers,
 interactive elements, and transitions to other pages.
 """
-import io
 import json
 import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
-import numpy as np
-from dataclass_wizard import JSONWizard
-from PIL import Image, ImageDraw
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QColorDialog, QDialog, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel,
                                QMessageBox, QPushButton, QVBoxLayout)
+from dataclass_wizard import JSONWizard
 
 from collector.window_capturer import WindowCapturer
 from domain.color import Color
 from domain.image_element import ImageElementEntity
-from domain.pixel_element import PixelColorElementEntity, PointColorPair
+from domain.pixel_element import PixelColorElementEntity, PixelColorPointEntity
 from domain.regions import Point, Region
 from processor.elements import ImageElement, PixelColorElement, UIElement
 
@@ -72,7 +67,7 @@ class GameConfig(JSONWizard):
 
 class ElementTypeHandler:
     """Base interface for element type handlers."""
-    
+
     @classmethod
     def get_type_id(cls) -> str:
         """Get the unique type identifier for this element type.
@@ -81,7 +76,7 @@ class ElementTypeHandler:
             String identifier for this element type
         """
         raise NotImplementedError("Subclasses must implement get_type_id")
-    
+
     @classmethod
     def create_element_ui(cls, parent=None) -> Optional[UIElement]:
         """Show UI for creating a new element of this type.
@@ -93,7 +88,7 @@ class ElementTypeHandler:
             Created element or None if cancelled
         """
         raise NotImplementedError("Subclasses must implement create_element_ui")
-    
+
     @classmethod
     def to_config(cls, element: UIElement, element_id: str) -> ElementConfig:
         """Convert an element to configuration for storage.
@@ -106,7 +101,7 @@ class ElementTypeHandler:
             Element configuration
         """
         raise NotImplementedError("Subclasses must implement to_config")
-    
+
     @classmethod
     def from_config(cls, config: ElementConfig) -> UIElement:
         """Create an element instance from configuration.
@@ -122,23 +117,23 @@ class ElementTypeHandler:
 
 class ImageCaptureDialog(QDialog):
     """Dialog for capturing an image element."""
-    
+
     def __init__(self, parent=None):
         """Initialize the image capture dialog."""
         super().__init__(parent)
         self.setWindowTitle("Capture Image Element")
         self.resize(400, 200)
-        
+
         self.capturer = WindowCapturer()
         self.region = None
         self.image = None
-        
+
         self._init_ui()
-        
+
     def _init_ui(self):
         """Initialize the dialog UI."""
         layout = QVBoxLayout(self)
-        
+
         # Instructions
         instructions = QLabel(
             "This dialog will help you capture an image element.\n\n"
@@ -147,46 +142,46 @@ class ImageCaptureDialog(QDialog):
             "3. Select the region of the screen containing the element"
         )
         layout.addWidget(instructions)
-        
+
         # Buttons
         button_layout = QHBoxLayout()
-        
+
         self.select_button = QPushButton("Select Region")
         self.select_button.clicked.connect(self._select_region)
-        
+
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self.reject)
-        
+
         button_layout.addWidget(self.select_button)
         button_layout.addWidget(self.cancel_button)
-        
+
         layout.addLayout(button_layout)
-        
+
     def _select_region(self):
         """Select a region of the screen."""
         # TODO: Implement actual region selection
         # This is a placeholder implementation
-        
+
         # Capture the game window
         window_name = "NIKKE"  # Update with your game window name
         self.capturer.set_window_name(window_name)
         capture_result = self.capturer.capture_window()
-        
+
         if not capture_result:
             QMessageBox.critical(self, "Error", f"Failed to capture window: {window_name}")
             return
-        
+
         # For demonstration purposes, just use a small region in the center of the screen
         # In a real implementation, you would let the user select a region
         screenshot = capture_result.to_pil()
         width, height = screenshot.size
-        
+
         # Use 10% of the screen in the center
         region_width = width // 10
         region_height = height // 10
         region_x = (width - region_width) // 2
         region_y = (height - region_height) // 2
-        
+
         self.region = Region(
             name="Captured Region",
             start_x=region_x,
@@ -196,38 +191,38 @@ class ImageCaptureDialog(QDialog):
             total_width=width,
             total_height=height
         )
-        
+
         # Extract the image
         self.image = screenshot.crop((region_x, region_y, region_x + region_width, region_y + region_height))
-        
+
         # Show the captured region
         QMessageBox.information(
-            self, 
-            "Region Captured", 
+            self,
+            "Region Captured",
             f"Captured region at ({region_x}, {region_y}) with size {region_width}x{region_height}"
         )
-        
+
         self.accept()
 
 
 class PixelColorCaptureDialog(QDialog):
     """Dialog for capturing a pixel color element."""
-    
+
     def __init__(self, parent=None):
         """Initialize the pixel color capture dialog."""
         super().__init__(parent)
         self.setWindowTitle("Capture Pixel Color Element")
         self.resize(400, 200)
-        
+
         self.capturer = WindowCapturer()
         self.points_colors = []
-        
+
         self._init_ui()
-        
+
     def _init_ui(self):
         """Initialize the dialog UI."""
         layout = QVBoxLayout(self)
-        
+
         # Instructions
         instructions = QLabel(
             "This dialog will help you capture a pixel color element.\n\n"
@@ -236,60 +231,52 @@ class PixelColorCaptureDialog(QDialog):
             "3. Add multiple points as needed"
         )
         layout.addWidget(instructions)
-        
+
         # Status
         self.status_label = QLabel("No points added")
         layout.addWidget(self.status_label)
-        
+
         # Buttons
         button_layout = QHBoxLayout()
-        
+
         self.add_button = QPushButton("Add Point")
         self.add_button.clicked.connect(self._add_point)
-        
+
         self.done_button = QPushButton("Done")
         self.done_button.clicked.connect(self.accept)
         self.done_button.setEnabled(False)
-        
+
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self.reject)
-        
+
         button_layout.addWidget(self.add_button)
         button_layout.addWidget(self.done_button)
         button_layout.addWidget(self.cancel_button)
-        
+
         layout.addLayout(button_layout)
-        
+
     def _add_point(self):
-        """Add a pixel color point."""
-        # TODO: Implement actual point selection
-        # This is a placeholder implementation
-        
-        # Capture the game window
-        window_name = "NIKKE"  # Update with your game window name
-        self.capturer.set_window_name(window_name)
         capture_result = self.capturer.capture_window()
-        
         if not capture_result:
             QMessageBox.critical(self, "Error", f"Failed to capture window: {window_name}")
             return
-        
+
         # For demonstration purposes, just use a point in the center of the screen
         # In a real implementation, you would let the user select a point
         screenshot = capture_result.to_pil()
         width, height = screenshot.size
-        
+
         # Use the center point
         point_x = width // 2
         point_y = height // 2
-        
+
         # Get the color at the point
         pixel_color = screenshot.getpixel((point_x, point_y))
         if len(pixel_color) == 4:  # RGBA
             r, g, b, _ = pixel_color
         else:  # RGB
             r, g, b = pixel_color
-        
+
         # Create point and color
         point = Point(
             x=point_x,
@@ -297,26 +284,20 @@ class PixelColorCaptureDialog(QDialog):
             total_width=width,
             total_height=height
         )
-        
+
         color = Color(r=r, g=g, b=b)
-        
-        # Add to points_colors
         self.points_colors.append(PointColorPair(point=point, color=color, tolerance=10))
-        
-        # Update status
         self.status_label.setText(f"Added point at ({point_x}, {point_y}) with color RGB({r}, {g}, {b})")
-        
-        # Enable done button
         self.done_button.setEnabled(True)
 
 
 class ImageElementHandler(ElementTypeHandler):
     """Handler for image elements."""
-    
+
     @classmethod
     def get_type_id(cls) -> str:
         return ElementType.IMAGE.value
-    
+
     @classmethod
     def create_element_ui(cls, parent=None) -> Optional[ImageElement]:
         """Show UI for creating a new image element.
@@ -339,9 +320,9 @@ class ImageElementHandler(ElementTypeHandler):
                     target_image=dialog.image,
                     threshold=0.8  # Default threshold
                 )
-        
+
         return None
-    
+
     @classmethod
     def to_config(cls, element: ImageElement, element_id: str) -> ElementConfig:
         """Convert an image element to configuration.
@@ -355,7 +336,7 @@ class ImageElementHandler(ElementTypeHandler):
         """
         # Convert to entity for serialization
         entity = element.to_dto()
-        
+
         return ElementConfig(
             id=element_id,
             name=element.name,
@@ -371,7 +352,7 @@ class ImageElementHandler(ElementTypeHandler):
                 "threshold": entity.threshold
             }
         )
-    
+
     @classmethod
     def from_config(cls, config: ElementConfig) -> ImageElement:
         """Create an image element from configuration.
@@ -394,18 +375,18 @@ class ImageElementHandler(ElementTypeHandler):
             image_data=config.data["image_data"],
             threshold=config.data["threshold"]
         )
-        
+
         # Create element from entity
         return ImageElement.from_entity(entity)
 
 
 class PixelColorElementHandler(ElementTypeHandler):
     """Handler for pixel color elements."""
-    
+
     @classmethod
     def get_type_id(cls) -> str:
         return ElementType.PIXEL_COLOR.value
-    
+
     @classmethod
     def create_element_ui(cls, parent=None) -> Optional[PixelColorElement]:
         """Show UI for creating a new pixel color element.
@@ -427,9 +408,9 @@ class PixelColorElementHandler(ElementTypeHandler):
                     points_colors=dialog.points_colors,
                     match_all=True  # Default to match all points
                 )
-        
+
         return None
-    
+
     @classmethod
     def to_config(cls, element: PixelColorElement, element_id: str) -> ElementConfig:
         """Convert a pixel color element to configuration.
@@ -442,8 +423,8 @@ class PixelColorElementHandler(ElementTypeHandler):
             Element configuration
         """
         # Convert to entity for serialization
-        entity = element.to_dto()
-        
+        entity = element.to_entity()
+
         return ElementConfig(
             id=element_id,
             name=element.name,
@@ -468,7 +449,7 @@ class PixelColorElementHandler(ElementTypeHandler):
                 "match_all": entity.match_all
             }
         )
-    
+
     @classmethod
     def from_config(cls, config: ElementConfig) -> PixelColorElement:
         """Create a pixel color element from configuration.
@@ -479,11 +460,7 @@ class PixelColorElementHandler(ElementTypeHandler):
         Returns:
             Pixel color element instance
         """
-        # Convert JSON data to entity
-        from domain.color import Color
-        from domain.pixel_element import PointColorPair
-        from domain.regions import Point
-        
+
         points_colors = []
         for pc_data in config.data["points_colors"]:
             point = Point(
@@ -492,32 +469,32 @@ class PixelColorElementHandler(ElementTypeHandler):
                 total_width=pc_data["point"]["total_width"],
                 total_height=pc_data["point"]["total_height"]
             )
-            
+
             color = Color(
                 r=pc_data["color"]["r"],
                 g=pc_data["color"]["g"],
                 b=pc_data["color"]["b"]
             )
-            
+
             tolerance = pc_data.get("tolerance", 10)
-            
-            points_colors.append(PointColorPair(point=point, color=color, tolerance=tolerance))
-        
+
+            points_colors.append(PixelColorPointEntity(point_x=point.x, point_y=point.y, color=color, tolerance=tolerance))
+
         entity = PixelColorElementEntity(
             name=config.name,
             points_colors=points_colors,
             match_all=config.data["match_all"]
         )
-        
+
         # Create element from entity
         return PixelColorElement.from_entity(entity)
 
 
 class ElementTypeRegistry:
     """Registry for element type handlers."""
-    
+
     _handlers: Dict[str, Type[ElementTypeHandler]] = {}
-    
+
     @classmethod
     def register_handler(cls, handler_class: Type[ElementTypeHandler]) -> None:
         """Register a handler for an element type.
@@ -527,7 +504,7 @@ class ElementTypeRegistry:
         """
         type_id = handler_class.get_type_id()
         cls._handlers[type_id] = handler_class
-    
+
     @classmethod
     def get_handler(cls, type_id: str) -> Optional[Type[ElementTypeHandler]]:
         """Get the handler for an element type.
@@ -539,7 +516,7 @@ class ElementTypeRegistry:
             Handler class for the element type or None if not found
         """
         return cls._handlers.get(type_id)
-    
+
     @classmethod
     def get_all_handlers(cls) -> Dict[str, Type[ElementTypeHandler]]:
         """Get all registered handlers.
@@ -567,7 +544,7 @@ class PageConfigManager:
         self.config_path = Path(config_path)
         self.config = GameConfig()
         self._element_cache: Dict[str, Dict[str, UIElement]] = {}  # page_id -> {element_id -> element}
-        
+
         # Load config if it exists
         if self.config_path.exists():
             self.load_config()
@@ -576,11 +553,11 @@ class PageConfigManager:
         """Load the configuration from the JSON file."""
         if not self.config_path.exists():
             return
-            
+
         try:
             with open(self.config_path, 'r') as f:
                 json_data = json.load(f)
-            
+
             self.config = GameConfig.from_dict(json_data)
             # Clear cache when loading new config
             self._element_cache.clear()
@@ -591,7 +568,7 @@ class PageConfigManager:
         """Save the configuration to the JSON file."""
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-        
+
         try:
             json_data = self.config.to_dict()
             with open(self.config_path, 'w') as f:
@@ -613,18 +590,18 @@ class PageConfigManager:
         # Check if page exists
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         # Get the page
         page = self.config.pages[page_id]
-        
+
         # Generate ID if not provided
         if not element_id:
             element_id = f"{element.name.lower().replace(' ', '_')}_{len(page.elements)}"
-            
+
         # Check if element with this ID already exists in the page
         if element_id in page.elements:
             raise ValueError(f"Element with ID {element_id} already exists in page {page_id}")
-            
+
         # Determine element type
         if isinstance(element, ImageElement):
             handler = ElementTypeRegistry.get_handler(ElementType.IMAGE.value)
@@ -632,21 +609,21 @@ class PageConfigManager:
             handler = ElementTypeRegistry.get_handler(ElementType.PIXEL_COLOR.value)
         else:
             raise TypeError(f"Unsupported element type: {type(element)}")
-            
+
         if not handler:
             raise ValueError(f"No handler found for element type: {type(element)}")
-            
+
         # Create element config
         element_config = handler.to_config(element, element_id)
-            
+
         # Add to page
         page.elements[element_id] = element_config
-        
+
         # Add to cache
         if page_id not in self._element_cache:
             self._element_cache[page_id] = {}
         self._element_cache[page_id][element_id] = element
-        
+
         return element_id
 
     def add_page(self, page_id: str, page_name: str) -> None:
@@ -658,7 +635,7 @@ class PageConfigManager:
         """
         if page_id in self.config.pages:
             raise ValueError(f"Page with ID {page_id} already exists")
-            
+
         self.config.pages[page_id] = PageConfig(
             id=page_id,
             name=page_name
@@ -673,12 +650,12 @@ class PageConfigManager:
         """
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         page = self.config.pages[page_id]
-        
+
         if element_id not in page.elements:
             raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
-            
+
         if element_id not in page.identifier_element_ids:
             page.identifier_element_ids.append(element_id)
 
@@ -691,16 +668,16 @@ class PageConfigManager:
         """
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         page = self.config.pages[page_id]
-        
+
         if element_id not in page.elements:
             raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
-            
+
         if element_id not in page.interactive_element_ids:
             page.interactive_element_ids.append(element_id)
 
-    def add_transition(self, page_id: str, element_id: str, target_page_id: str, 
+    def add_transition(self, page_id: str, element_id: str, target_page_id: str,
                        confirmation_element_ids: Optional[List[str]] = None) -> None:
         """Add a transition between pages.
         
@@ -712,29 +689,30 @@ class PageConfigManager:
         """
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         if target_page_id not in self.config.pages:
             raise ValueError(f"Target page with ID {target_page_id} does not exist")
-            
+
         page = self.config.pages[page_id]
-        
+
         if element_id not in page.elements:
             raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
-            
+
         # Validate confirmation elements if provided
         if confirmation_element_ids:
             target_page = self.config.pages[target_page_id]
             for conf_id in confirmation_element_ids:
                 if conf_id not in target_page.elements:
-                    raise ValueError(f"Confirmation element with ID {conf_id} does not exist in target page {target_page_id}")
-        
+                    raise ValueError(
+                        f"Confirmation element with ID {conf_id} does not exist in target page {target_page_id}")
+
         # Create transition
         transition = TransitionConfig(
             element_id=element_id,
             target_page=target_page_id,
             confirmation_element_ids=confirmation_element_ids or []
         )
-        
+
         # Add to page
         page.transitions.append(transition)
 
@@ -751,33 +729,33 @@ class PageConfigManager:
         # Check if page exists
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         page = self.config.pages[page_id]
-        
+
         # Check if element exists in page
         if element_id not in page.elements:
             raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
-        
+
         # Check cache first
         if page_id in self._element_cache and element_id in self._element_cache[page_id]:
             return self._element_cache[page_id][element_id]
-            
+
         # Not in cache, create from config
         element_config = page.elements[element_id]
-        
+
         # Get handler for element type
         handler = ElementTypeRegistry.get_handler(element_config.type)
         if not handler:
             raise ValueError(f"No handler found for element type: {element_config.type}")
-        
+
         # Create element from config
         element = handler.from_config(element_config)
-        
+
         # Add to cache
         if page_id not in self._element_cache:
             self._element_cache[page_id] = {}
         self._element_cache[page_id][element_id] = element
-        
+
         return element
 
     def get_page_identifiers(self, page_id: str) -> List[UIElement]:
@@ -791,10 +769,10 @@ class PageConfigManager:
         """
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         page = self.config.pages[page_id]
-        
-        return [self.get_element(page_id, element_id) 
+
+        return [self.get_element(page_id, element_id)
                 for element_id in page.identifier_element_ids]
 
     def get_page_interactive_elements(self, page_id: str) -> List[UIElement]:
@@ -808,10 +786,10 @@ class PageConfigManager:
         """
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
-            
+
         page = self.config.pages[page_id]
-        
-        return [self.get_element(page_id, element_id) 
+
+        return [self.get_element(page_id, element_id)
                 for element_id in page.interactive_element_ids]
 
     def get_transition_element(self, from_page_id: str, to_page_id: str) -> Optional[UIElement]:
@@ -826,17 +804,17 @@ class PageConfigManager:
         """
         if from_page_id not in self.config.pages:
             raise ValueError(f"Page with ID {from_page_id} does not exist")
-            
+
         if to_page_id not in self.config.pages:
             raise ValueError(f"Page with ID {to_page_id} does not exist")
-            
+
         page = self.config.pages[from_page_id]
-        
+
         # Find transition
         for transition in page.transitions:
             if transition.target_page == to_page_id:
                 return self.get_element(from_page_id, transition.element_id)
-                
+
         return None
 
     def get_confirmation_elements(self, from_page_id: str, to_page_id: str) -> List[UIElement]:
@@ -851,17 +829,17 @@ class PageConfigManager:
         """
         if from_page_id not in self.config.pages:
             raise ValueError(f"Page with ID {from_page_id} does not exist")
-            
+
         if to_page_id not in self.config.pages:
             raise ValueError(f"Page with ID {to_page_id} does not exist")
-            
+
         from_page = self.config.pages[from_page_id]
-        
+
         # Find transition
         for transition in from_page.transitions:
             if transition.target_page == to_page_id:
-                return [self.get_element(to_page_id, element_id) 
+                return [self.get_element(to_page_id, element_id)
                         for element_id in transition.confirmation_element_ids]
-                
+
         # If no specific confirmation elements, use target page identifiers
-        return self.get_page_identifiers(to_page_id) 
+        return self.get_page_identifiers(to_page_id)
