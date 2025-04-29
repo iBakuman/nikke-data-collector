@@ -457,7 +457,6 @@ class PageConfigManager:
 
     def __init__(self, config_path: Union[str, Path]):
         """Initialize the page config manager.
-
         Args:
             config_path: Path to the JSON configuration file
         """
