@@ -1,16 +1,24 @@
+from dataclasses import dataclass
 from typing import Tuple
 
+@dataclass
+class Region:
+    left: int
+    top: int
+    right: int
+    bottom: int
+    width: int
+    height: int
 
 class WindowInfo:
     """Class to hold window information including position, size and scale ratio."""
 
-    def __init__(self, hwnd: int, rect: Tuple[int, int, int, int], standard_width: int, standard_height: int):
+    def __init__(self, hwnd: int, rect: Region, standard_width: int, standard_height: int):
         self.hwnd = hwnd
         self.rect = rect
-        self.left, self.top, self.right, self.bottom = rect
+        self.left, self.top, self.right, self.bottom = rect.left, rect.top, rect.right, rect.bottom
         self.width = self.right - self.left
         self.height = self.bottom - self.top
-        # Calculate scale ratios
         self.width_ratio = self.width / standard_width
         self.height_ratio = self.height / standard_height
 
@@ -49,3 +57,4 @@ class WindowInfo:
         return (f"Window: {self.left},{self.top} - {self.right},{self.bottom} "
                 f"(Size: {self.width}x{self.height}) "
                 f"Scale: {self.width_ratio:.4f}x{self.height_ratio:.4f}")
+

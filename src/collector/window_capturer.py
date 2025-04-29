@@ -35,15 +35,14 @@ class WindowCapturer:
         try:
             rect = self.window_manager.get_rect()
             # Convert to mss format (left, top, width, height)
-            left, top, right, bottom = rect
             screenshot = self.sct.grab({
-                "top": top,
-                "left": left,
-                "width": right - left,
-                "height": bottom - top
+                "top": rect.top,
+                "left": rect.left,
+                "width": rect.width,
+                "height": rect.height,
             })
             # FIXME
-            result = CaptureResult(screenshot=screenshot, region=Region(0, 0, right - left, bottom - top))
+            result = CaptureResult(screenshot=screenshot, region=Region(0, 0, rect.width, rect.height))
             return result
 
         except Exception as e:
@@ -53,7 +52,8 @@ class WindowCapturer:
     def capture_region(self, region: Region) -> Optional[CaptureResult]:
         try:
             # Calculate the scaled coordinates based on current window size
-            scaled_x, scaled_y = self.window_manager.get_window_info().get_scaled_position(region.start_x, region.start_y)
+            scaled_x, scaled_y = self.window_manager.get_window_info().get_scaled_position(region.start_x,
+                                                                                           region.start_y)
             scaled_width = int(region.width * self.window_manager.get_window_info().width_ratio)
             scaled_height = int(region.height * self.window_manager.get_window_info().height_ratio)
 

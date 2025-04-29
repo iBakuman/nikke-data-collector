@@ -9,13 +9,14 @@ import win32process
 
 from .logging_config import get_logger
 from .ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
-from .window_info import WindowInfo
+from .window_info import WindowInfo, Region
 
 logger = get_logger(__name__)
 
 
 class WindowNotFoundException(Exception):
     """Exception raised when a window for a specific process is not found."""
+
     def __init__(self, process_name):
         self.process_name = process_name
         message = f"Window not found for process: {process_name}"
@@ -58,7 +59,7 @@ class WindowManager:
     def get_hwnd(self) -> int:
         return self._window_info.hwnd
 
-    def get_rect(self) -> Tuple[int, int, int, int]:
+    def get_rect(self) -> Region:
         return self._window_info.rect
 
     @property
@@ -176,7 +177,8 @@ class WindowManager:
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             time.sleep(0.6)  # Wait for restore
 
-    def _calculate_target_size_by_width(self, target_width: int, monitor_width: int, monitor_height: int) -> Dict[str, int]:
+    def _calculate_target_size_by_width(self, target_width: int, monitor_width: int, monitor_height: int) -> Dict[
+        str, int]:
         """
         Calculate target client size based on desired width, maintaining aspect ratio
 
@@ -288,7 +290,7 @@ def get_window_handle(process_name: str, exact_match: bool = True) -> Optional[i
     return hwnds[0] if hwnds else None
 
 
-def get_window_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
+def get_window_rect(hwnd: int) -> Optional[Region]:
     """
     Get the window client area rectangle coordinates.
 
@@ -306,10 +308,12 @@ def get_window_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
         # Convert client coordinates to screen coordinates
         point_left_top = win32gui.ClientToScreen(hwnd, (client_left, client_top))
         point_right_bottom = win32gui.ClientToScreen(hwnd, (client_right, client_bottom))
+        return Region(left=point_left_top[0], top=point_left_top[1],
+                      right=point_right_bottom[0], bottom=point_right_bottom[1],
+                      width=point_right_bottom[0] - point_left_top[0],
+                      height=point_right_bottom[1] - point_left_top[1]
+                      )
 
-        # Return screen coordinates of client area
-        return (point_left_top[0], point_left_top[1],
-                point_right_bottom[0], point_right_bottom[1])
 
     except Exception as e:
         logger.error(f"Error getting window client rectangle: {e}")

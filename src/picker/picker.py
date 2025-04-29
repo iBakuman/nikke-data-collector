@@ -6,13 +6,13 @@ from enum import Enum
 from typing import List, Optional, Tuple
 
 import win32gui
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PIL import ImageDraw
 from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QComboBox, QFrame, QInputDialog, QLabel,
                                QMessageBox, QPushButton, QToolBar, QVBoxLayout,
                                QWidget)
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
@@ -457,16 +457,16 @@ class PickerApp(QObject):
                 logger.warning("Could not get current Nikke window rect.")
                 return
 
-            current_pos = QPoint(current_rect[0], current_rect[1])
-            current_size = (current_rect[2] - current_rect[0], current_rect[3] - current_rect[1])
+            current_pos = QPoint(current_rect.left, current_rect.top)
+            current_size = (current_rect.width, current_rect.height)
 
             overlay_pos = self.overlay.pos()
             overlay_size = (self.overlay.width(), self.overlay.height())
 
             if current_pos != overlay_pos or current_size != overlay_size:
                 logger.info(f"Nikke window changed. Updating overlay geometry to {current_rect}")
-                self.toolbar.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height + 20, self.wm.width, 20)
-                self.overlay.setGeometry(self.wm.start_x, self.wm.start_y, self.wm.width, self.wm.height)
+                self.overlay.setGeometry(current_rect.left, current_rect.top, current_rect.width, current_rect.height)
+                self.toolbar.setGeometry(current_rect.left, current_rect.top + current_rect.height + 20, current_rect.width, 20)
         except Exception:
             logger.exception("Error checking/updating window position:")
 
