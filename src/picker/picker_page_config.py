@@ -8,13 +8,63 @@ as page identifiers or interactive elements, and to define transitions between p
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QInputDialog,
-                               QLabel, QLineEdit, QListView, QMessageBox, QPushButton, QTreeView,
-                               QVBoxLayout)
+                               QLabel, QLineEdit, QListView, QMessageBox,
+                               QPushButton, QTreeView, QVBoxLayout)
 
 from collector.logging_config import get_logger
 from processor.page_config import ElementTypeRegistry, PageConfigManager
 
 logger = get_logger(__name__)
+
+
+def _create_dialog_buttons(dialog, ok_button_text="OK", ok_callback=None, cancel_callback=None):
+    """Create standard dialog buttons.
+
+    Args:
+        dialog: The dialog to add buttons to
+        ok_button_text: Text for the OK button
+        ok_callback: Callback for the OK button
+        cancel_callback: Callback for the Cancel button
+
+    Returns:
+        QHBoxLayout: The button layout
+    """
+    button_layout = QHBoxLayout()
+
+    ok_button = QPushButton(ok_button_text)
+    if ok_callback:
+        ok_button.clicked.connect(ok_callback)
+
+    cancel_button = QPushButton("Cancel")
+    if cancel_callback:
+        cancel_button.clicked.connect(cancel_callback)
+    else:
+        cancel_button.clicked.connect(dialog.reject)
+
+    button_layout.addWidget(ok_button)
+    button_layout.addWidget(cancel_button)
+
+    return button_layout, ok_button, cancel_button
+
+
+def _create_item_from_element(element, element_id, display_suffix=""):
+    """Create a standard item from an element.
+
+    Args:
+        element: The element to create an item from
+        element_id: The ID of the element
+        display_suffix: Optional suffix to add to the display name
+
+    Returns:
+        QStandardItem: The created item
+    """
+    display_name = element.name
+    if display_suffix:
+        display_name = f"{display_name} {display_suffix}"
+
+    item = QStandardItem(display_name)
+    item.setData(element_id, Qt.ItemDataRole.UserRole)
+    return item
 
 
 class ElementCreationDialog(QDialog):
@@ -54,17 +104,9 @@ class ElementCreationDialog(QDialog):
         layout.addWidget(self.name_input)
 
         # Buttons
-        button_layout = QHBoxLayout()
-
-        self.create_button = QPushButton("Create")
-        self.create_button.clicked.connect(self._on_create)
-
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
-
-        button_layout.addWidget(self.create_button)
-        button_layout.addWidget(self.cancel_button)
-
+        button_layout, self.create_button, self.cancel_button = _create_dialog_buttons(
+            self, "Create", self._on_create
+        )
         layout.addLayout(button_layout)
 
     def _on_create(self):
@@ -308,8 +350,7 @@ class PageConfigDialog(QDialog):
         for element_id in page.identifier_element_ids:
             if element_id in page.elements:
                 element = page.elements[element_id]
-                item = QStandardItem(element.name)
-                item.setData(element_id, Qt.ItemDataRole.UserRole)
+                item = _create_item_from_element(element, element_id)
                 self.identifier_model.appendRow(item)
 
         # Load interactive elements
@@ -317,8 +358,7 @@ class PageConfigDialog(QDialog):
         for element_id in page.interactive_element_ids:
             if element_id in page.elements:
                 element = page.elements[element_id]
-                item = QStandardItem(element.name)
-                item.setData(element_id, Qt.ItemDataRole.UserRole)
+                item = _create_item_from_element(element, element_id)
                 self.interactive_model.appendRow(item)
 
         # Load transitions
@@ -329,13 +369,36 @@ class PageConfigDialog(QDialog):
                 element = page.elements[transition.element_id]
                 target_page = self.config_manager.config.pages[transition.target_page]
 
-                element_item = QStandardItem(element.name)
-                element_item.setData(transition.element_id, Qt.ItemDataRole.UserRole)
-
+                element_item = _create_item_from_element(element, transition.element_id)
                 target_item = QStandardItem(target_page.name)
                 target_item.setData(transition.target_page, Qt.ItemDataRole.UserRole)
 
                 self.transition_model.appendRow([element_item, target_item])
+
+    def _get_selected_page_id(self):
+        """Get the ID of the selected page.
+
+        Returns:
+            str or None: The selected page ID, or None if no page is selected
+        """
+        indexes = self.page_tree.selectedIndexes()
+        if not indexes:
+            return None
+
+        page_item = self.page_model.itemFromIndex(indexes[0])
+        return page_item.data(Qt.ItemDataRole.UserRole)
+
+    def _get_selected_element_id(self):
+        """Get the ID of the selected element.
+
+        Returns:
+            str or None: The selected element ID, or None if no element is selected
+        """
+        indexes = self.element_tree.selectedIndexes()
+        if not indexes:
+            return None
+
+        return self.element_model.item(indexes[0].row(), 0).text()
 
     def _add_page(self):
         """Add a new page to the configuration."""
@@ -363,12 +426,9 @@ class PageConfigDialog(QDialog):
     def _add_element(self):
         """Add a new element to the current page."""
         # Get selected page
-        indexes = self.page_tree.selectedIndexes()
-        if not indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Show element creation dialog
         dialog = ElementCreationDialog(page_id, self)
@@ -388,20 +448,15 @@ class PageConfigDialog(QDialog):
     def _add_identifier(self):
         """Add an identifier element to the current page."""
         # Get selected page
-        indexes = self.page_tree.selectedIndexes()
-        if not indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Get selected element
-        indexes = self.element_tree.selectedIndexes()
-        if not indexes:
+        element_id = self._get_selected_element_id()
+        if not element_id:
             QMessageBox.warning(self, "Warning", "Please select an element first")
             return
-
-        element_id = self.element_model.item(indexes[0].row(), 0).text()
 
         # Add to page
         try:
@@ -416,12 +471,9 @@ class PageConfigDialog(QDialog):
     def _remove_identifier(self):
         """Remove an identifier element from the current page."""
         # Get selected page
-        page_indexes = self.page_tree.selectedIndexes()
-        if not page_indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(page_indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Get selected identifier
         id_indexes = self.identifier_list.selectedIndexes()
@@ -442,20 +494,15 @@ class PageConfigDialog(QDialog):
     def _add_interactive(self):
         """Add an interactive element to the current page."""
         # Get selected page
-        indexes = self.page_tree.selectedIndexes()
-        if not indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Get selected element
-        indexes = self.element_tree.selectedIndexes()
-        if not indexes:
+        element_id = self._get_selected_element_id()
+        if not element_id:
             QMessageBox.warning(self, "Warning", "Please select an element first")
             return
-
-        element_id = self.element_model.item(indexes[0].row(), 0).text()
 
         # Add to page
         try:
@@ -470,12 +517,9 @@ class PageConfigDialog(QDialog):
     def _remove_interactive(self):
         """Remove an interactive element from the current page."""
         # Get selected page
-        page_indexes = self.page_tree.selectedIndexes()
-        if not page_indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(page_indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Get selected interactive element
         int_indexes = self.interactive_list.selectedIndexes()
@@ -496,20 +540,15 @@ class PageConfigDialog(QDialog):
     def _add_transition(self):
         """Add a transition to the current page."""
         # Get selected page
-        indexes = self.page_tree.selectedIndexes()
-        if not indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Get selected element
-        indexes = self.element_tree.selectedIndexes()
-        if not indexes:
+        element_id = self._get_selected_element_id()
+        if not element_id:
             QMessageBox.warning(self, "Warning", "Please select an element first")
             return
-
-        element_id = self.element_model.item(indexes[0].row(), 0).text()
 
         # Get target page
         target_dialog = TargetPageDialog(self.config_manager, self)
@@ -532,12 +571,9 @@ class PageConfigDialog(QDialog):
     def _remove_transition(self):
         """Remove a transition from the current page."""
         # Get selected page
-        page_indexes = self.page_tree.selectedIndexes()
-        if not page_indexes:
+        page_id = self._get_selected_page_id()
+        if not page_id:
             return
-
-        page_item = self.page_model.itemFromIndex(page_indexes[0])
-        page_id = page_item.data(Qt.ItemDataRole.UserRole)
 
         # Get selected transition
         trans_indexes = self.transition_tree.selectedIndexes()
@@ -618,17 +654,9 @@ class TargetPageDialog(QDialog):
         self._update_elements()
 
         # Buttons
-        button_layout = QHBoxLayout()
-
-        self.ok_button = QPushButton("OK")
-        self.ok_button.clicked.connect(self._on_ok)
-
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
-
-        button_layout.addWidget(self.ok_button)
-        button_layout.addWidget(self.cancel_button)
-
+        button_layout, self.ok_button, self.cancel_button = _create_dialog_buttons(
+            self, "OK", self._on_ok
+        )
         layout.addLayout(button_layout)
 
     def _update_elements(self):
@@ -647,8 +675,7 @@ class TargetPageDialog(QDialog):
         for element_id in page.identifier_element_ids:
             if element_id in page.elements:
                 element = page.elements[element_id]
-                item = QStandardItem(f"{element.name} (Identifier)")
-                item.setData(element_id, Qt.ItemDataRole.UserRole)
+                item = _create_item_from_element(element, element_id, "(Identifier)")
                 self.element_model.appendRow(item)
 
     def _on_ok(self):
