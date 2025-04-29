@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import win32gui
@@ -20,6 +21,9 @@ from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, get_window_rect
 from domain.image_element import ImageElementEntity
 from mixin.json import JSONSerializableMixin
+from processor.page_config import PageConfigManager
+from .data import get_page_config_path
+from .picker_page_config import PageConfigDialog
 
 logger = get_logger(__name__)
 
@@ -77,7 +81,7 @@ class CoordinateTooltip(QFrame):
 
         # Magnification settings
         self.magnification = 5  # Each pixel becomes 5x5
-        self.area_size = 20     # Extract 20x20 pixels around cursor
+        self.area_size = 20  # Extract 20x20 pixels around cursor
 
         # Pixel data
         self.pixel_data = None
@@ -126,8 +130,8 @@ class CoordinateTooltip(QFrame):
                     qcolor = QColor(*color)
 
                     # Calculate position (centered on cursor)
-                    px = area_rect.x() + center_x + (x - self.area_size//2) * pixel_size
-                    py = area_rect.y() + center_y + (y - self.area_size//2) * pixel_size
+                    px = area_rect.x() + center_x + (x - self.area_size // 2) * pixel_size
+                    py = area_rect.y() + center_y + (y - self.area_size // 2) * pixel_size
 
                     # Draw the magnified pixel
                     painter.fillRect(px, py, pixel_size, pixel_size, qcolor)
@@ -138,7 +142,7 @@ class CoordinateTooltip(QFrame):
             # Horizontal line at cursor position
             painter.drawLine(
                 area_rect.x(), area_rect.y() + center_y,
-                area_rect.x() + area_rect.width(), area_rect.y() + center_y
+                               area_rect.x() + area_rect.width(), area_rect.y() + center_y
             )
 
             # Vertical line at cursor position
@@ -236,7 +240,7 @@ class OverlayWidget(QWidget):
 
                 # Only sample colors if coordinates are in bounds
                 if (0 <= x < self.current_screenshot.width and
-                    0 <= y < self.current_screenshot.height):
+                        0 <= y < self.current_screenshot.height):
                     try:
                         # Get the central pixel color
                         r, g, b = self.current_screenshot.getpixel((x, y))
@@ -313,7 +317,7 @@ class OverlayWidget(QWidget):
                 logger.info(f"Template region selected: {final_selection}")
                 # Prompt user for next step
                 QMessageBox.information(self, "Template Selected",
-                                      "Template image area selected. Now select the detection region (the larger area where this template should be found).")
+                                        "Template image area selected. Now select the detection region (the larger area where this template should be found).")
 
             # Second selection: detection region
             elif self.region_selection_step == 1:
@@ -403,8 +407,12 @@ class Coordinates(JSONWizard, JSONSerializableMixin):
 
 # noinspection PyBroadException
 class PickerApp(QObject):
-    def __init__(self):
+    def __init__(self, config_path: Optional[Path] = None):
         super().__init__()
+        if not config_path:
+            self.page_config_manager = PageConfigManager(get_page_config_path())
+        else:
+            self.page_config_manager = PageConfigManager(config_path)
         self.nikke_hwnd: Optional[int] = None
         self.overlay: Optional[OverlayWidget] = None
         self.toolbar: Optional[QToolBar] = None
@@ -466,7 +474,8 @@ class PickerApp(QObject):
             if current_pos != overlay_pos or current_size != overlay_size:
                 logger.info(f"Nikke window changed. Updating overlay geometry to {current_rect}")
                 self.overlay.setGeometry(current_rect.left, current_rect.top, current_rect.width, current_rect.height)
-                self.toolbar.setGeometry(current_rect.left, current_rect.top + current_rect.height + 20, current_rect.width, 20)
+                self.toolbar.setGeometry(current_rect.left, current_rect.top + current_rect.height + 20,
+                                         current_rect.width, 20)
         except Exception:
             logger.exception("Error checking/updating window position:")
 
@@ -504,7 +513,12 @@ class PickerApp(QObject):
         clear_button.clicked.connect(self.clear_points)
         self.toolbar.addWidget(clear_button)
 
-        self.toolbar.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height + 20, self.wm.width, 40)  # Taller toolbar
+        page_config_button = QPushButton("Page Config")
+        page_config_button.clicked.connect(self._show_page_config_dialog)
+        self.toolbar.addWidget(page_config_button)
+
+        self.toolbar.setGeometry(self.wm.start_x, self.wm.start_y + self.wm.height + 20, self.wm.width,
+                                 40)  # Taller toolbar
         self.toolbar.show()
 
     def init_overlay(self):
@@ -604,8 +618,8 @@ class PickerApp(QObject):
 
             # Extract the template image (excluding border)
             template_image = pil_image.crop((template_x, template_y,
-                                           template_x + template_w,
-                                           template_y + template_h))
+                                             template_x + template_w,
+                                             template_y + template_h))
 
             # Get name for the image element
             element_name, ok = QInputDialog.getText(
@@ -650,16 +664,16 @@ class PickerApp(QObject):
             # Draw detection region (red) - using original regions for visualization
             draw.rectangle(
                 (detection_region.x(), detection_region.y(),
-                detection_region.x() + detection_region.width(),
-                detection_region.y() + detection_region.height()),
+                 detection_region.x() + detection_region.width(),
+                 detection_region.y() + detection_region.height()),
                 outline=(255, 0, 0), width=2, fill=None
             )
 
             # Draw template region (green) - using original regions for visualization
             draw.rectangle(
                 (template_region.x(), template_region.y(),
-                template_region.x() + template_region.width(),
-                template_region.y() + template_region.height()),
+                 template_region.x() + template_region.width(),
+                 template_region.y() + template_region.height()),
                 outline=(0, 255, 0), width=2, fill=None
             )
 
@@ -667,16 +681,16 @@ class PickerApp(QObject):
             # Template actual region
             draw.rectangle(
                 (template_x, template_y,
-                template_x + template_w,
-                template_y + template_h),
+                 template_x + template_w,
+                 template_y + template_h),
                 outline=(0, 0, 255), width=1, fill=None
             )
 
             # Detection actual region
             draw.rectangle(
                 (detection_x, detection_y,
-                detection_x + detection_w,
-                detection_y + detection_h),
+                 detection_x + detection_w,
+                 detection_y + detection_h),
                 outline=(255, 255, 0), width=1, fill=None
             )
 
@@ -756,12 +770,14 @@ class PickerApp(QObject):
             error_message = f"Could not save points data:\n{e}"
             QMessageBox.critical(self.toolbar, "JSON Save Error", error_message)
 
-    # def closeEvent(self, event):
-    #     """Ensure overlay is closed when main window closes."""
-    #     logger.info("Closing application...")
-    #     if self.overlay:
-    #         self.overlay.close()
-    #     # Stop the timer if it's running
-    #     if hasattr(self, 'window_check_timer') and self.window_check_timer:
-    #         self.kill_timer(self.window_check_timer)
-    #     super().closeEvent(event)
+    def add_page_config_button(self, toolbar):
+        """Add a page configuration button to the toolbar.
+
+        Args:
+            toolbar: The toolbar to add the button to
+        """
+
+    def _show_page_config_dialog(self):
+        """Show the page configuration dialog."""
+        dialog = PageConfigDialog(self.page_config_manager, self.toolbar)
+        dialog.exec()
