@@ -7,15 +7,90 @@ as page identifiers or interactive elements, and to define transitions between p
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout,
-                               QInputDialog, QLabel, QListView,
-                               QMessageBox, QPushButton, QTreeView,
+from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QInputDialog,
+                               QLabel, QLineEdit, QListView, QMessageBox, QPushButton, QTreeView,
                                QVBoxLayout)
 
 from collector.logging_config import get_logger
-from processor.page_config import PageConfigManager
+from processor.page_config import ElementTypeRegistry, PageConfigManager
 
 logger = get_logger(__name__)
+
+
+class ElementCreationDialog(QDialog):
+    """Dialog for creating a new element."""
+
+    def __init__(self, page_id: str, parent=None):
+        """Initialize the element creation dialog.
+
+        Args:
+            page_id: ID of the page to add the element to
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.page_id = page_id
+        self.element = None
+
+        self.setWindowTitle("Create Element")
+        self.resize(400, 300)
+
+        self._init_ui()
+
+    def _init_ui(self):
+        """Initialize the dialog UI."""
+        layout = QVBoxLayout(self)
+
+        # Element type selection
+        layout.addWidget(QLabel("Element Type:"))
+
+        self.type_combo = QComboBox()
+        for type_id, handler in ElementTypeRegistry.get_all_handlers().items():
+            self.type_combo.addItem(type_id, type_id)
+        layout.addWidget(self.type_combo)
+
+        # Element name input
+        layout.addWidget(QLabel("Element Name:"))
+        self.name_input = QLineEdit()
+        layout.addWidget(self.name_input)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+
+        self.create_button = QPushButton("Create")
+        self.create_button.clicked.connect(self._on_create)
+
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.reject)
+
+        button_layout.addWidget(self.create_button)
+        button_layout.addWidget(self.cancel_button)
+
+        layout.addLayout(button_layout)
+
+    def _on_create(self):
+        """Handle create button click."""
+        element_type = self.type_combo.currentData()
+        element_name = self.name_input.text()
+
+        if not element_name:
+            QMessageBox.warning(self, "Warning", "Please enter an element name")
+            return
+
+        # Get handler for element type
+        handler = ElementTypeRegistry.get_handler(element_type)
+        if not handler:
+            QMessageBox.critical(self, "Error", f"No handler found for element type: {element_type}")
+            return
+
+        # Create element
+        self.element = handler.create_element_ui(self)
+
+        if self.element:
+            # Set element name
+            self.element.name = element_name
+            self.accept()
+        else:
+            QMessageBox.warning(self, "Warning", "Element creation cancelled or failed")
 
 
 class PageConfigDialog(QDialog):
@@ -35,7 +110,6 @@ class PageConfigDialog(QDialog):
 
         self._init_ui()
         self._load_pages()
-        self._load_elements()
 
     def _init_ui(self):
         """Initialize the dialog UI."""
@@ -117,9 +191,9 @@ class PageConfigDialog(QDialog):
         transition_button_layout.addWidget(self.remove_transition_button)
         detail_layout.addLayout(transition_button_layout)
 
-        # Right side - Elements
+        # Right side - Elements for current page
         element_layout = QVBoxLayout()
-        element_layout.addWidget(QLabel("Available Elements:"))
+        element_layout.addWidget(QLabel("Page Elements:"))
 
         # Element tree view
         self.element_model = QStandardItemModel()
@@ -127,6 +201,13 @@ class PageConfigDialog(QDialog):
         self.element_tree = QTreeView()
         self.element_tree.setModel(self.element_model)
         element_layout.addWidget(self.element_tree)
+
+        # Element buttons
+        element_button_layout = QHBoxLayout()
+        self.add_element_button = QPushButton("New Element")
+        self.add_element_button.clicked.connect(self._add_element)
+        element_button_layout.addWidget(self.add_element_button)
+        element_layout.addLayout(element_button_layout)
 
         # Dialog buttons
         button_layout = QHBoxLayout()
@@ -150,6 +231,7 @@ class PageConfigDialog(QDialog):
 
         # Disable page detail controls initially
         self._set_detail_controls_enabled(False)
+        self.add_element_button.setEnabled(False)
 
     def _set_detail_controls_enabled(self, enabled: bool):
         """Enable or disable page detail controls.
@@ -163,6 +245,7 @@ class PageConfigDialog(QDialog):
         self.remove_interactive_button.setEnabled(enabled)
         self.add_transition_button.setEnabled(enabled)
         self.remove_transition_button.setEnabled(enabled)
+        self.add_element_button.setEnabled(enabled)
 
     def _load_pages(self):
         """Load pages from configuration into the tree view."""
@@ -174,12 +257,18 @@ class PageConfigDialog(QDialog):
             item.setData(page_id, Qt.ItemDataRole.UserRole)
             self.page_model.appendRow(item)
 
-    def _load_elements(self):
-        """Load elements from configuration into the tree view."""
+    def _load_page_elements(self, page_id: str):
+        """Load elements for a page into the tree view.
+
+        Args:
+            page_id: ID of the page to load elements for
+        """
         self.element_model.clear()
         self.element_model.setHorizontalHeaderLabels(["ID", "Name", "Type"])
 
-        for element_id, element in self.config_manager.config.elements.items():
+        page = self.config_manager.config.pages[page_id]
+
+        for element_id, element in page.elements.items():
             id_item = QStandardItem(element_id)
             name_item = QStandardItem(element.name)
             type_item = QStandardItem(element.type)
@@ -203,6 +292,9 @@ class PageConfigDialog(QDialog):
         # Load page details
         self._load_page_details(page_id)
 
+        # Load page elements
+        self._load_page_elements(page_id)
+
     def _load_page_details(self, page_id: str):
         """Load details for a page.
 
@@ -214,33 +306,36 @@ class PageConfigDialog(QDialog):
         # Load identifiers
         self.identifier_model.clear()
         for element_id in page.identifier_element_ids:
-            element = self.config_manager.config.elements[element_id]
-            item = QStandardItem(element.name)
-            item.setData(element_id, Qt.ItemDataRole.UserRole)
-            self.identifier_model.appendRow(item)
+            if element_id in page.elements:
+                element = page.elements[element_id]
+                item = QStandardItem(element.name)
+                item.setData(element_id, Qt.ItemDataRole.UserRole)
+                self.identifier_model.appendRow(item)
 
         # Load interactive elements
         self.interactive_model.clear()
         for element_id in page.interactive_element_ids:
-            element = self.config_manager.config.elements[element_id]
-            item = QStandardItem(element.name)
-            item.setData(element_id, Qt.ItemDataRole.UserRole)
-            self.interactive_model.appendRow(item)
+            if element_id in page.elements:
+                element = page.elements[element_id]
+                item = QStandardItem(element.name)
+                item.setData(element_id, Qt.ItemDataRole.UserRole)
+                self.interactive_model.appendRow(item)
 
         # Load transitions
         self.transition_model.clear()
         self.transition_model.setHorizontalHeaderLabels(["Element", "Target Page"])
         for transition in page.transitions:
-            element = self.config_manager.config.elements[transition.element_id]
-            target_page = self.config_manager.config.pages[transition.target_page]
+            if transition.element_id in page.elements and transition.target_page in self.config_manager.config.pages:
+                element = page.elements[transition.element_id]
+                target_page = self.config_manager.config.pages[transition.target_page]
 
-            element_item = QStandardItem(element.name)
-            element_item.setData(transition.element_id, Qt.ItemDataRole.UserRole)
+                element_item = QStandardItem(element.name)
+                element_item.setData(transition.element_id, Qt.ItemDataRole.UserRole)
 
-            target_item = QStandardItem(target_page.name)
-            target_item.setData(transition.target_page, Qt.ItemDataRole.UserRole)
+                target_item = QStandardItem(target_page.name)
+                target_item.setData(transition.target_page, Qt.ItemDataRole.UserRole)
 
-            self.transition_model.appendRow([element_item, target_item])
+                self.transition_model.appendRow([element_item, target_item])
 
     def _add_page(self):
         """Add a new page to the configuration."""
@@ -264,6 +359,31 @@ class PageConfigDialog(QDialog):
 
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
+
+    def _add_element(self):
+        """Add a new element to the current page."""
+        # Get selected page
+        indexes = self.page_tree.selectedIndexes()
+        if not indexes:
+            return
+
+        page_item = self.page_model.itemFromIndex(indexes[0])
+        page_id = page_item.data(Qt.ItemDataRole.UserRole)
+
+        # Show element creation dialog
+        dialog = ElementCreationDialog(page_id, self)
+        if dialog.exec():
+            element = dialog.element
+            if element:
+                try:
+                    # Add element to page
+                    element_id = self.config_manager.add_element(page_id, element)
+
+                    # Refresh page elements
+                    self._load_page_elements(page_id)
+
+                except ValueError as e:
+                    QMessageBox.critical(self, "Error", str(e))
 
     def _add_identifier(self):
         """Add an identifier element to the current page."""
@@ -525,10 +645,11 @@ class TargetPageDialog(QDialog):
 
         # Add identifier elements
         for element_id in page.identifier_element_ids:
-            element = self.config_manager.config.elements[element_id]
-            item = QStandardItem(f"{element.name} (Identifier)")
-            item.setData(element_id, Qt.ItemDataRole.UserRole)
-            self.element_model.appendRow(item)
+            if element_id in page.elements:
+                element = page.elements[element_id]
+                item = QStandardItem(f"{element.name} (Identifier)")
+                item.setData(element_id, Qt.ItemDataRole.UserRole)
+                self.element_model.appendRow(item)
 
     def _on_ok(self):
         """Handle OK button click."""
@@ -545,3 +666,22 @@ class TargetPageDialog(QDialog):
         self.accept()
 
 
+# Button to add to the PickerApp
+class PageConfigButton(QPushButton):
+    """Button for showing the page configuration dialog."""
+
+    def __init__(self, config_path: str, parent=None):
+        """Initialize the page config button.
+
+        Args:
+            config_path: Path to the JSON configuration file
+            parent: Parent widget
+        """
+        super().__init__("Page Config", parent)
+        self.config_manager = PageConfigManager(config_path)
+        self.clicked.connect(self._show_page_config_dialog)
+
+    def _show_page_config_dialog(self):
+        """Show the page configuration dialog."""
+        dialog = PageConfigDialog(self.config_manager, self.parent())
+        dialog.exec()
