@@ -131,9 +131,6 @@ class ImageElement(UIElement):
         Raises:
             ValueError: If the DTO contains invalid data
         """
-        if not isinstance(entity, ImageElementEntity):
-            raise TypeError(f"Expected ImageElement, got {type(entity).__name__}")
-
         # Create Region from DTO fields
         region = Region(
             name=entity.name,
@@ -145,13 +142,11 @@ class ImageElement(UIElement):
             total_height=entity.region_total_height
         )
 
-        # Load image from binary data
         if not entity.image_data:
             raise ValueError("Image data is empty in DTO")
 
         target_image = Image.open(io.BytesIO(entity.image_data))
 
-        # Create and return new ImageElement
         return cls(
             name=entity.name,
             region=region,
@@ -160,7 +155,7 @@ class ImageElement(UIElement):
             threshold=entity.threshold
         )
 
-    def to_dto(self) -> ImageElementEntity:
+    def to_entity(self) -> ImageElementEntity:
         """Convert this ImageElement to a DTO for database storage.
 
         Returns:
@@ -171,7 +166,6 @@ class ImageElement(UIElement):
         self.target_image.save(img_byte_arr, format='PNG')
         image_data = img_byte_arr.getvalue()
 
-        # Create DTO with region data and image binary data
         return ImageElementEntity(
             name=self.name,
             region_x=self.region.start_x,

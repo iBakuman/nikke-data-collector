@@ -9,14 +9,18 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
 
+from dataclass_wizard import JSONPyWizard, JSONWizard
+
 from domain.color import Color
 from domain.regions import Point
+from mixin.json import JSONSerializableMixin
 
 
 @dataclass
-class PixelColorPointEntity:
-    """A single color point in a PixelColorElement."""
-    
+class PixelColorPointEntity(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
+
     id: Optional[int] = None
     element_id: Optional[int] = None
     point_x: int = 0
@@ -26,7 +30,7 @@ class PixelColorPointEntity:
     color_r: int = 0
     color_g: int = 0
     color_b: int = 0
-    
+
     def to_point_and_color(self) -> tuple[Point, Color]:
         """Convert entity data to Point and Color objects."""
         point = Point(
@@ -35,17 +39,18 @@ class PixelColorPointEntity:
             total_width=self.total_width,
             total_height=self.total_height
         )
-        
+
         color = Color(
             r=self.color_r,
             g=self.color_g,
             b=self.color_b
         )
-        
+
         return point, color
-    
+
     @classmethod
-    def from_point_and_color(cls, point: Point, color: Color, element_id: Optional[int] = None) -> 'PixelColorPointEntity':
+    def from_point_and_color(cls, point: Point, color: Color,
+                             element_id: Optional[int] = None) -> 'PixelColorPointEntity':
         """Create entity from Point and Color objects."""
         return cls(
             element_id=element_id,
@@ -60,23 +65,24 @@ class PixelColorPointEntity:
 
 
 @dataclass
-class PixelColorElementEntity:
-    """Database representation of a PixelColorElement."""
+class PixelColorElementEntity(JSONWizard, JSONSerializableMixin):
+    class _(JSONPyWizard.Meta):
+        skip_defaults = True
 
     id: Optional[int] = None  # Primary key, None for new records
     name: str = ""  # Element name
-    
+
     # Detection parameters
     tolerance: int = 10
     match_all: bool = True
-    
+
     # Collection of points and colors
     points: List[PixelColorPointEntity] = field(default_factory=list)
-    
+
     # Metadata
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    
+
     def get_points_colors(self) -> List[tuple[Point, Color]]:
         """Get list of Point and Color pairs from stored entities.
         
@@ -84,7 +90,7 @@ class PixelColorElementEntity:
             List of (Point, Color) tuples
         """
         return [point_entity.to_point_and_color() for point_entity in self.points]
-    
+
     def set_points_colors(self, points_colors: List[tuple[Point, Color]]) -> None:
         """Set points and colors from a list of Point and Color pairs.
         

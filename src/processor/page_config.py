@@ -19,7 +19,7 @@ from dataclass_wizard import JSONWizard
 from collector.window_capturer import WindowCapturer
 from domain.color import Color
 from domain.image_element import ImageElementEntity
-from domain.pixel_element import PixelColorElementEntity, PixelColorPointEntity
+from domain.pixel_element import PixelColorElementEntity
 from domain.regions import Point, Region
 from processor.elements import ImageElement, PixelColorElement, UIElement
 
@@ -71,7 +71,7 @@ class ElementTypeHandler:
     @classmethod
     def get_type_id(cls) -> str:
         """Get the unique type identifier for this element type.
-        
+
         Returns:
             String identifier for this element type
         """
@@ -80,10 +80,10 @@ class ElementTypeHandler:
     @classmethod
     def create_element_ui(cls, parent=None) -> Optional[UIElement]:
         """Show UI for creating a new element of this type.
-        
+
         Args:
             parent: Optional parent widget for UI
-            
+
         Returns:
             Created element or None if cancelled
         """
@@ -92,11 +92,11 @@ class ElementTypeHandler:
     @classmethod
     def to_config(cls, element: UIElement, element_id: str) -> ElementConfig:
         """Convert an element to configuration for storage.
-        
+
         Args:
             element: The element to convert
             element_id: ID for the element
-            
+
         Returns:
             Element configuration
         """
@@ -105,10 +105,10 @@ class ElementTypeHandler:
     @classmethod
     def from_config(cls, config: ElementConfig) -> UIElement:
         """Create an element instance from configuration.
-        
+
         Args:
             config: The element configuration
-            
+
         Returns:
             Element instance
         """
@@ -118,13 +118,12 @@ class ElementTypeHandler:
 class ImageCaptureDialog(QDialog):
     """Dialog for capturing an image element."""
 
-    def __init__(self, parent=None):
+    def __init__(self, capturer: WindowCapturer, parent=None):
         """Initialize the image capture dialog."""
         super().__init__(parent)
         self.setWindowTitle("Capture Image Element")
         self.resize(400, 200)
-
-        self.capturer = WindowCapturer()
+        self.capturer = capturer
         self.region = None
         self.image = None
 
@@ -159,16 +158,10 @@ class ImageCaptureDialog(QDialog):
 
     def _select_region(self):
         """Select a region of the screen."""
-        # TODO: Implement actual region selection
-        # This is a placeholder implementation
-
-        # Capture the game window
-        window_name = "NIKKE"  # Update with your game window name
-        self.capturer.set_window_name(window_name)
         capture_result = self.capturer.capture_window()
 
         if not capture_result:
-            QMessageBox.critical(self, "Error", f"Failed to capture window: {window_name}")
+            QMessageBox.critical(self, "Error", f"Failed to capture window")
             return
 
         # For demonstration purposes, just use a small region in the center of the screen
@@ -208,13 +201,13 @@ class ImageCaptureDialog(QDialog):
 class PixelColorCaptureDialog(QDialog):
     """Dialog for capturing a pixel color element."""
 
-    def __init__(self, parent=None):
+    def __init__(self, window: WindowCapturer,parent=None):
         """Initialize the pixel color capture dialog."""
         super().__init__(parent)
         self.setWindowTitle("Capture Pixel Color Element")
         self.resize(400, 200)
 
-        self.capturer = WindowCapturer()
+        self.capturer = window
         self.points_colors = []
 
         self._init_ui()
@@ -258,7 +251,7 @@ class PixelColorCaptureDialog(QDialog):
     def _add_point(self):
         capture_result = self.capturer.capture_window()
         if not capture_result:
-            QMessageBox.critical(self, "Error", f"Failed to capture window: {window_name}")
+            QMessageBox.critical(self, "Error", f"Failed to capture window")
             return
 
         # For demonstration purposes, just use a point in the center of the screen
@@ -286,7 +279,7 @@ class PixelColorCaptureDialog(QDialog):
         )
 
         color = Color(r=r, g=g, b=b)
-        self.points_colors.append(PointColorPair(point=point, color=color, tolerance=10))
+        self.points_colors.append(PixelColorElementEntity(point=point, color=color, tolerance=10))
         self.status_label.setText(f"Added point at ({point_x}, {point_y}) with color RGB({r}, {g}, {b})")
         self.done_button.setEnabled(True)
 
@@ -301,12 +294,12 @@ class ImageElementHandler(ElementTypeHandler):
     @classmethod
     def create_element_ui(cls, parent=None) -> Optional[ImageElement]:
         """Show UI for creating a new image element.
-        
+
         This involves taking a screenshot and selecting a region.
-        
+
         Args:
             parent: Optional parent widget for UI
-            
+
         Returns:
             Created image element or None if cancelled
         """
@@ -326,57 +319,36 @@ class ImageElementHandler(ElementTypeHandler):
     @classmethod
     def to_config(cls, element: ImageElement, element_id: str) -> ElementConfig:
         """Convert an image element to configuration.
-        
+
         Args:
             element: The image element to convert
             element_id: ID for the element
-            
+
         Returns:
             Element configuration
         """
         # Convert to entity for serialization
-        entity = element.to_dto()
+        entity = element.to_entity()
+        data = entity.to_dict()
 
         return ElementConfig(
             id=element_id,
             name=element.name,
             type=ElementType.IMAGE.value,
-            data={
-                "region_x": entity.region_x,
-                "region_y": entity.region_y,
-                "region_width": entity.region_width,
-                "region_height": entity.region_height,
-                "region_total_width": entity.region_total_width,
-                "region_total_height": entity.region_total_height,
-                "image_data": entity.image_data,
-                "threshold": entity.threshold
-            }
+            data=data
         )
 
     @classmethod
     def from_config(cls, config: ElementConfig) -> ImageElement:
         """Create an image element from configuration.
-        
+
         Args:
             config: The element configuration
-            
+
         Returns:
             Image element instance
         """
-        # Convert JSON data to entity
-        entity = ImageElementEntity(
-            name=config.name,
-            region_x=config.data["region_x"],
-            region_y=config.data["region_y"],
-            region_width=config.data["region_width"],
-            region_height=config.data["region_height"],
-            region_total_width=config.data["region_total_width"],
-            region_total_height=config.data["region_total_height"],
-            image_data=config.data["image_data"],
-            threshold=config.data["threshold"]
-        )
-
-        # Create element from entity
+        entity = ImageElementEntity.from_dict(config.data)
         return ImageElement.from_entity(entity)
 
 
@@ -390,12 +362,12 @@ class PixelColorElementHandler(ElementTypeHandler):
     @classmethod
     def create_element_ui(cls, parent=None) -> Optional[PixelColorElement]:
         """Show UI for creating a new pixel color element.
-        
+
         This involves selecting pixels and their colors.
-        
+
         Args:
             parent: Optional parent widget for UI
-            
+
         Returns:
             Created pixel color element or None if cancelled
         """
@@ -414,79 +386,27 @@ class PixelColorElementHandler(ElementTypeHandler):
     @classmethod
     def to_config(cls, element: PixelColorElement, element_id: str) -> ElementConfig:
         """Convert a pixel color element to configuration.
-        
+
         Args:
             element: The pixel color element to convert
             element_id: ID for the element
-            
+
         Returns:
             Element configuration
         """
-        # Convert to entity for serialization
         entity = element.to_entity()
+        data = entity.to_dict()
 
         return ElementConfig(
             id=element_id,
             name=element.name,
             type=ElementType.PIXEL_COLOR.value,
-            data={
-                "points_colors": [
-                    {
-                        "point": {
-                            "x": pc.point.x,
-                            "y": pc.point.y,
-                            "total_width": pc.point.total_width,
-                            "total_height": pc.point.total_height
-                        },
-                        "color": {
-                            "r": pc.color.r,
-                            "g": pc.color.g,
-                            "b": pc.color.b
-                        },
-                        "tolerance": pc.tolerance
-                    } for pc in entity.points_colors
-                ],
-                "match_all": entity.match_all
-            }
+            data=data,
         )
 
     @classmethod
     def from_config(cls, config: ElementConfig) -> PixelColorElement:
-        """Create a pixel color element from configuration.
-        
-        Args:
-            config: The element configuration
-            
-        Returns:
-            Pixel color element instance
-        """
-
-        points_colors = []
-        for pc_data in config.data["points_colors"]:
-            point = Point(
-                x=pc_data["point"]["x"],
-                y=pc_data["point"]["y"],
-                total_width=pc_data["point"]["total_width"],
-                total_height=pc_data["point"]["total_height"]
-            )
-
-            color = Color(
-                r=pc_data["color"]["r"],
-                g=pc_data["color"]["g"],
-                b=pc_data["color"]["b"]
-            )
-
-            tolerance = pc_data.get("tolerance", 10)
-
-            points_colors.append(PixelColorPointEntity(point_x=point.x, point_y=point.y, color=color, tolerance=tolerance))
-
-        entity = PixelColorElementEntity(
-            name=config.name,
-            points_colors=points_colors,
-            match_all=config.data["match_all"]
-        )
-
-        # Create element from entity
+        entity = PixelColorElementEntity.from_dict(config.data)
         return PixelColorElement.from_entity(entity)
 
 
@@ -498,7 +418,7 @@ class ElementTypeRegistry:
     @classmethod
     def register_handler(cls, handler_class: Type[ElementTypeHandler]) -> None:
         """Register a handler for an element type.
-        
+
         Args:
             handler_class: Handler class for the element type
         """
@@ -508,10 +428,10 @@ class ElementTypeRegistry:
     @classmethod
     def get_handler(cls, type_id: str) -> Optional[Type[ElementTypeHandler]]:
         """Get the handler for an element type.
-        
+
         Args:
             type_id: Type identifier
-            
+
         Returns:
             Handler class for the element type or None if not found
         """
@@ -520,7 +440,7 @@ class ElementTypeRegistry:
     @classmethod
     def get_all_handlers(cls) -> Dict[str, Type[ElementTypeHandler]]:
         """Get all registered handlers.
-        
+
         Returns:
             Dictionary of type IDs to handler classes
         """
@@ -537,7 +457,7 @@ class PageConfigManager:
 
     def __init__(self, config_path: Union[str, Path]):
         """Initialize the page config manager.
-        
+
         Args:
             config_path: Path to the JSON configuration file
         """
@@ -578,12 +498,12 @@ class PageConfigManager:
 
     def add_element(self, page_id: str, element: UIElement, element_id: Optional[str] = None) -> str:
         """Add an element to a page.
-        
+
         Args:
             page_id: ID of the page to add the element to
             element: The UI element to add
             element_id: Optional custom ID for the element
-            
+
         Returns:
             The ID of the added element
         """
@@ -628,7 +548,7 @@ class PageConfigManager:
 
     def add_page(self, page_id: str, page_name: str) -> None:
         """Add a page to the configuration.
-        
+
         Args:
             page_id: Unique identifier for the page
             page_name: Human-readable name for the page
@@ -643,7 +563,7 @@ class PageConfigManager:
 
     def add_page_identifier(self, page_id: str, element_id: str) -> None:
         """Add an identifier element to a page.
-        
+
         Args:
             page_id: ID of the page
             element_id: ID of the element to add as identifier
@@ -661,7 +581,7 @@ class PageConfigManager:
 
     def add_interactive_element(self, page_id: str, element_id: str) -> None:
         """Add an interactive element to a page.
-        
+
         Args:
             page_id: ID of the page
             element_id: ID of the interactive element to add
@@ -680,7 +600,7 @@ class PageConfigManager:
     def add_transition(self, page_id: str, element_id: str, target_page_id: str,
                        confirmation_element_ids: Optional[List[str]] = None) -> None:
         """Add a transition between pages.
-        
+
         Args:
             page_id: ID of the source page
             element_id: ID of the element to click
@@ -718,11 +638,11 @@ class PageConfigManager:
 
     def get_element(self, page_id: str, element_id: str) -> UIElement:
         """Get an element by ID from a page.
-        
+
         Args:
             page_id: ID of the page
             element_id: ID of the element to get
-            
+
         Returns:
             The element instance
         """
@@ -760,10 +680,10 @@ class PageConfigManager:
 
     def get_page_identifiers(self, page_id: str) -> List[UIElement]:
         """Get all identifier elements for a page.
-        
+
         Args:
             page_id: ID of the page
-            
+
         Returns:
             List of identifier elements
         """
@@ -777,10 +697,10 @@ class PageConfigManager:
 
     def get_page_interactive_elements(self, page_id: str) -> List[UIElement]:
         """Get all interactive elements for a page.
-        
+
         Args:
             page_id: ID of the page
-            
+
         Returns:
             List of interactive elements
         """
@@ -794,11 +714,11 @@ class PageConfigManager:
 
     def get_transition_element(self, from_page_id: str, to_page_id: str) -> Optional[UIElement]:
         """Get the element to click to transition from one page to another.
-        
+
         Args:
             from_page_id: ID of the source page
             to_page_id: ID of the target page
-            
+
         Returns:
             The element to click or None if no direct transition exists
         """
@@ -819,11 +739,11 @@ class PageConfigManager:
 
     def get_confirmation_elements(self, from_page_id: str, to_page_id: str) -> List[UIElement]:
         """Get the elements that confirm a transition has completed.
-        
+
         Args:
             from_page_id: ID of the source page
             to_page_id: ID of the target page
-            
+
         Returns:
             List of elements that should be present on the target page
         """
