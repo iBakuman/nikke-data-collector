@@ -23,7 +23,7 @@ class PageConfigDialog(QDialog):
 
     def __init__(self, config_manager: PageConfigManager, parent=None):
         """Initialize the page config dialog.
-        
+
         Args:
             config_manager: The page configuration manager
             parent: Parent widget
@@ -153,7 +153,7 @@ class PageConfigDialog(QDialog):
 
     def _set_detail_controls_enabled(self, enabled: bool):
         """Enable or disable page detail controls.
-        
+
         Args:
             enabled: Whether to enable the controls
         """
@@ -205,7 +205,7 @@ class PageConfigDialog(QDialog):
 
     def _load_page_details(self, page_id: str):
         """Load details for a page.
-        
+
         Args:
             page_id: ID of the page to load
         """
@@ -457,7 +457,7 @@ class TargetPageDialog(QDialog):
 
     def __init__(self, config_manager: PageConfigManager, parent=None):
         """Initialize the target page dialog.
-        
+
         Args:
             config_manager: The page configuration manager
             parent: Parent widget
