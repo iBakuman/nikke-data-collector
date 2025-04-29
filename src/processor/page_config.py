@@ -12,16 +12,20 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, Union
 
-from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel,
-                               QMessageBox, QPushButton, QVBoxLayout)
 from dataclass_wizard import JSONWizard
+from PySide6.QtCore import QObject
+from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QMessageBox,
+                               QPushButton, QVBoxLayout)
 
+from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
 from domain.color import Color
 from domain.image_element import ImageElementEntity
 from domain.pixel_element import PixelColorElementEntity
 from domain.regions import Point, Region
 from processor.elements import ImageElement, PixelColorElement, UIElement
+
+logger = get_logger(__name__)
 
 
 class ElementType(Enum):
@@ -198,92 +202,6 @@ class ImageCaptureDialog(QDialog):
         self.accept()
 
 
-class PixelColorCaptureDialog(QDialog):
-    """Dialog for capturing a pixel color element."""
-
-    def __init__(self, window: WindowCapturer,parent=None):
-        """Initialize the pixel color capture dialog."""
-        super().__init__(parent)
-        self.setWindowTitle("Capture Pixel Color Element")
-        self.resize(400, 200)
-
-        self.capturer = window
-        self.points_colors = []
-
-        self._init_ui()
-
-    def _init_ui(self):
-        """Initialize the dialog UI."""
-        layout = QVBoxLayout(self)
-
-        # Instructions
-        instructions = QLabel(
-            "This dialog will help you capture a pixel color element.\n\n"
-            "1. Make sure the game window is visible\n"
-            "2. Click 'Add Point' to add a pixel color point\n"
-            "3. Add multiple points as needed"
-        )
-        layout.addWidget(instructions)
-
-        # Status
-        self.status_label = QLabel("No points added")
-        layout.addWidget(self.status_label)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-
-        self.add_button = QPushButton("Add Point")
-        self.add_button.clicked.connect(self._add_point)
-
-        self.done_button = QPushButton("Done")
-        self.done_button.clicked.connect(self.accept)
-        self.done_button.setEnabled(False)
-
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
-
-        button_layout.addWidget(self.add_button)
-        button_layout.addWidget(self.done_button)
-        button_layout.addWidget(self.cancel_button)
-
-        layout.addLayout(button_layout)
-
-    def _add_point(self):
-        capture_result = self.capturer.capture_window()
-        if not capture_result:
-            QMessageBox.critical(self, "Error", f"Failed to capture window")
-            return
-
-        # For demonstration purposes, just use a point in the center of the screen
-        # In a real implementation, you would let the user select a point
-        screenshot = capture_result.to_pil()
-        width, height = screenshot.size
-
-        # Use the center point
-        point_x = width // 2
-        point_y = height // 2
-
-        # Get the color at the point
-        pixel_color = screenshot.getpixel((point_x, point_y))
-        if len(pixel_color) == 4:  # RGBA
-            r, g, b, _ = pixel_color
-        else:  # RGB
-            r, g, b = pixel_color
-
-        # Create point and color
-        point = Point(
-            x=point_x,
-            y=point_y,
-            total_width=width,
-            total_height=height
-        )
-
-        color = Color(r=r, g=g, b=b)
-        self.points_colors.append(PixelColorElementEntity(point=point, color=color, tolerance=10))
-        self.status_label.setText(f"Added point at ({point_x}, {point_y}) with color RGB({r}, {g}, {b})")
-        self.done_button.setEnabled(True)
-
-
 class ImageElementHandler(ElementTypeHandler):
     """Handler for image elements."""
 
@@ -363,7 +281,7 @@ class PixelColorElementHandler(ElementTypeHandler):
     def create_element_ui(cls, parent=None) -> Optional[PixelColorElement]:
         """Show UI for creating a new pixel color element.
 
-        This involves selecting pixels and their colors.
+        This involves selecting pixels and their colors using an overlay approach.
 
         Args:
             parent: Optional parent widget for UI
@@ -371,16 +289,39 @@ class PixelColorElementHandler(ElementTypeHandler):
         Returns:
             Created pixel color element or None if cancelled
         """
-        dialog = PixelColorCaptureDialog(parent)
-        if dialog.exec():
-            if dialog.points_colors:
+        try:
+            # Find the main window with PickerApp
+            main_window = parent.window()
+            app_instance = None
+            
+            # Look for an object with overlay_controller attribute
+            for widget in main_window.findChildren(QObject):
+                if hasattr(widget, 'overlay_controller'):
+                    app_instance = widget
+                    break
+            
+            if not app_instance:
+                QMessageBox.critical(parent, "Error", "Could not find overlay controller")
+                return None
+            
+            # Import the pixel color capture function
+            from picker.picker_pixel_color import capture_pixel_colors
+
+            # Use the overlay controller to capture points
+            points_colors = capture_pixel_colors(app_instance.overlay_controller)
+            
+            if points_colors and len(points_colors) > 0:
                 # Create element
                 return PixelColorElement(
                     name="Temp Name",  # Will be overwritten by caller
-                    points_colors=dialog.points_colors,
+                    points_colors=points_colors,
                     match_all=True  # Default to match all points
                 )
-
+                
+        except Exception as e:
+            logger.exception(f"Error creating pixel color element: {e}")
+            QMessageBox.critical(parent, "Error", f"Failed to create pixel color element: {str(e)}")
+            
         return None
 
     @classmethod
@@ -622,8 +563,7 @@ class PageConfigManager:
             target_page = self.config.pages[target_page_id]
             for conf_id in confirmation_element_ids:
                 if conf_id not in target_page.elements:
-                    raise ValueError(
-                        f"Confirmation element with ID {conf_id} does not exist in target page {target_page_id}")
+                    raise ValueError(f"Confirmation element with ID {conf_id} does not exist in target page {target_page_id}")
 
         # Create transition
         transition = TransitionConfig(

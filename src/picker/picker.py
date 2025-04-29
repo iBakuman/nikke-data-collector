@@ -7,21 +7,25 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import win32gui
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PIL import ImageDraw
 from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QComboBox, QFrame, QInputDialog, QLabel,
                                QMessageBox, QPushButton, QToolBar, QVBoxLayout,
                                QWidget)
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, get_window_rect
+from domain.color import Color
 from domain.image_element import ImageElementEntity
+from domain.pixel_element import PixelColorElementEntity
+from domain.regions import Point
 from mixin.json import JSONSerializableMixin
 from processor.page_config import PageConfigManager
+
 from .data import get_page_config_path
 from .picker_page_config import PageConfigDialog
 
@@ -375,6 +379,162 @@ class OverlayWidget(QWidget):
                 painter.drawRect(self.current_selection)
 
 
+class OverlayController(QObject):
+    """Controller for managing different overlay capture modes."""
+    
+    # Signals for different capture modes
+    point_captured = Signal(object)  # Signal emitted when a point is captured during pixel color mode
+    
+    def __init__(self, overlay_widget, window_capturer):
+        """Initialize the overlay controller.
+        
+        Args:
+            overlay_widget: The overlay widget to control
+            window_capturer: Window capturer for screenshot capture
+        """
+        super().__init__()
+        self.overlay = overlay_widget
+        self.window_capturer = window_capturer
+        
+        # Store original state variables
+        self.original_mode = None
+        self.original_points = None
+        self.original_handler = None
+        
+        # Current capture mode
+        self.capture_mode = None
+        
+    def get_overlay_rect(self):
+        """Get the geometry of the overlay widget.
+        
+        Returns:
+            QRect: The geometry of the overlay widget
+        """
+        return self.overlay.geometry()
+        
+    def start_pixel_capture_mode(self):
+        """Start pixel color capture mode."""
+        logger.info("Starting pixel color capture mode")
+        
+        # Store original state
+        self.original_mode = self.overlay.selection_mode
+        self.original_points = self.overlay._points.copy() if self.overlay._points else []
+        
+        # Disconnect existing handlers
+        if self.overlay.clicked.receivers() > 0:
+            try:
+                # Store original handler reference - this is a simplification
+                # since we can't actually store the exact handler reference in PySide6
+                self.original_handler = True
+                # Disconnect all handlers
+                self.overlay.clicked.disconnect()
+            except (RuntimeError, TypeError):
+                pass
+        
+        # Connect our handler for pixel capture
+        self.overlay.clicked.connect(self._handle_pixel_capture_click)
+        
+        # Set to point mode
+        self.overlay.set_selection_mode(SelectionMode.POINT)
+        
+        # Clear existing points
+        self.overlay.set_points([])
+        
+        # Update the screenshot
+        self.overlay.update_screenshot()
+        
+        # Set current mode
+        self.capture_mode = "pixel_color"
+        
+    def end_pixel_capture_mode(self):
+        """End pixel color capture mode and restore original state."""
+        if self.capture_mode != "pixel_color":
+            return
+            
+        logger.info("Ending pixel color capture mode")
+        
+        # Disconnect our handler
+        try:
+            self.overlay.clicked.disconnect(self._handle_pixel_capture_click)
+        except (RuntimeError, TypeError):
+            pass
+            
+        # Restore original handler if needed
+        if self.original_handler and hasattr(self.overlay.parent(), 'handle_overlay_click'):
+            self.overlay.clicked.connect(self.overlay.parent().handle_overlay_click)
+            
+        # Restore original mode
+        if self.original_mode:
+            self.overlay.set_selection_mode(self.original_mode)
+            
+        # Restore original points
+        if self.original_points:
+            self.overlay.set_points(self.original_points)
+            
+        # Reset capture mode
+        self.capture_mode = None
+        
+        # Reset stored original state
+        self.original_mode = None
+        self.original_points = None
+        self.original_handler = None
+        
+    def _handle_pixel_capture_click(self, event):
+        """Handle clicks during pixel color capture mode."""
+        if self.capture_mode != "pixel_color":
+            return
+            
+        # Get click position
+        x = int(event.position().x())
+        y = int(event.position().y())
+        
+        try:
+            # Capture screenshot for color sampling
+            capture_result = self.window_capturer.capture_window()
+            if not capture_result:
+                logger.error("Failed to capture window during pixel color capture")
+                return
+                
+            # Get pixel color from the captured image
+            pil_image = capture_result.to_pil()
+            pixel_color = pil_image.getpixel((x, y))
+            
+            # Handle both RGB and RGBA formats
+            if len(pixel_color) == 4:  # RGBA
+                r, g, b, _ = pixel_color
+            else:  # RGB
+                r, g, b = pixel_color
+                
+            # Create point and color objects
+            point = Point(
+                x=x,
+                y=y,
+                total_width=pil_image.width,
+                total_height=pil_image.height
+            )
+            color = Color(r=r, g=g, b=b)
+            
+            # Create pixel color element entity
+            pixel_element = PixelColorElementEntity(point=point, color=color, tolerance=10)
+            
+            # Emit signal with captured point
+            self.point_captured.emit(pixel_element)
+            
+            # Update the visual display in overlay
+            # Add this new point to what's already displayed
+            display_points = self.overlay._points.copy() if self.overlay._points else []
+            display_points.append((x, y, (r, g, b)))
+            self.overlay.set_points(display_points)
+            
+            logger.info(f"Pixel captured at ({x}, {y}) with RGB({r}, {g}, {b})")
+            
+        except Exception as e:
+            logger.exception(f"Error capturing pixel color: {e}")
+            
+    # In the future, we can add more capture modes like:
+    # start_text_capture_mode(), start_custom_element_capture_mode(), etc.
+
+
 @dataclass
 class Coordinate(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
@@ -425,6 +585,10 @@ class PickerApp(QObject):
         self._initialize_window_manager()
         self.wc = WindowCapturer(self.wm)
         self.init_ui()
+        
+        # Create the overlay controller
+        self.overlay_controller = OverlayController(self.overlay, self.wc)
+        
         self.timer = QTimer()
         self.timer.setInterval(250)
         self.timer.timeout.connect(self.update_overlay_position)
