@@ -70,15 +70,15 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.pushButton = QPushButton(self.centralwidget)
-        self.pushButton.setObjectName(u"pushButton")
+        self.btnAddIdentifer = QPushButton(self.centralwidget)
+        self.btnAddIdentifer.setObjectName(u"btnAddIdentifer")
 
-        self.horizontalLayout_2.addWidget(self.pushButton)
+        self.horizontalLayout_2.addWidget(self.btnAddIdentifer)
 
-        self.pushButton_2 = QPushButton(self.centralwidget)
-        self.pushButton_2.setObjectName(u"pushButton_2")
+        self.btnRemoveIdentifier = QPushButton(self.centralwidget)
+        self.btnRemoveIdentifier.setObjectName(u"btnRemoveIdentifier")
 
-        self.horizontalLayout_2.addWidget(self.pushButton_2)
+        self.horizontalLayout_2.addWidget(self.btnRemoveIdentifier)
 
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
@@ -95,15 +95,15 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_4 = QHBoxLayout()
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
-        self.pushButton_5 = QPushButton(self.centralwidget)
-        self.pushButton_5.setObjectName(u"pushButton_5")
+        self.btnAddInteractive = QPushButton(self.centralwidget)
+        self.btnAddInteractive.setObjectName(u"btnAddInteractive")
 
-        self.horizontalLayout_4.addWidget(self.pushButton_5)
+        self.horizontalLayout_4.addWidget(self.btnAddInteractive)
 
-        self.pushButton_6 = QPushButton(self.centralwidget)
-        self.pushButton_6.setObjectName(u"pushButton_6")
+        self.btnRemoveInteractive = QPushButton(self.centralwidget)
+        self.btnRemoveInteractive.setObjectName(u"btnRemoveInteractive")
 
-        self.horizontalLayout_4.addWidget(self.pushButton_6)
+        self.horizontalLayout_4.addWidget(self.btnRemoveInteractive)
 
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_4)
@@ -120,15 +120,15 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_5 = QHBoxLayout()
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
-        self.pushButton_7 = QPushButton(self.centralwidget)
-        self.pushButton_7.setObjectName(u"pushButton_7")
+        self.btnAddTransition = QPushButton(self.centralwidget)
+        self.btnAddTransition.setObjectName(u"btnAddTransition")
 
-        self.horizontalLayout_5.addWidget(self.pushButton_7)
+        self.horizontalLayout_5.addWidget(self.btnAddTransition)
 
-        self.pushButton_8 = QPushButton(self.centralwidget)
-        self.pushButton_8.setObjectName(u"pushButton_8")
+        self.btnRemoveTransition = QPushButton(self.centralwidget)
+        self.btnRemoveTransition.setObjectName(u"btnRemoveTransition")
 
-        self.horizontalLayout_5.addWidget(self.pushButton_8)
+        self.horizontalLayout_5.addWidget(self.btnRemoveTransition)
 
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_5)
@@ -143,15 +143,16 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_3.addWidget(self.label_5)
 
-        self.treeView = QTreeView(self.centralwidget)
-        self.treeView.setObjectName(u"treeView")
+        self.element_tree = QTreeView(self.centralwidget)
+        self.element_tree.setObjectName(u"element_tree")
+        self.element_tree.setAutoScroll(True)
 
-        self.verticalLayout_3.addWidget(self.treeView)
+        self.verticalLayout_3.addWidget(self.element_tree)
 
-        self.btnAddPage_2 = QPushButton(self.centralwidget)
-        self.btnAddPage_2.setObjectName(u"btnAddPage_2")
+        self.btnNewElement = QPushButton(self.centralwidget)
+        self.btnNewElement.setObjectName(u"btnNewElement")
 
-        self.verticalLayout_3.addWidget(self.btnAddPage_2)
+        self.verticalLayout_3.addWidget(self.btnNewElement)
 
 
         self.horizontalLayout_8.addLayout(self.verticalLayout_3)
@@ -161,15 +162,15 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_6 = QHBoxLayout()
         self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
-        self.save_button = QPushButton(self.centralwidget)
-        self.save_button.setObjectName(u"save_button")
+        self.btnSave = QPushButton(self.centralwidget)
+        self.btnSave.setObjectName(u"btnSave")
 
-        self.horizontalLayout_6.addWidget(self.save_button)
+        self.horizontalLayout_6.addWidget(self.btnSave)
 
-        self.cancel_button = QPushButton(self.centralwidget)
-        self.cancel_button.setObjectName(u"cancel_button")
+        self.btnCancel = QPushButton(self.centralwidget)
+        self.btnCancel.setObjectName(u"btnCancel")
 
-        self.horizontalLayout_6.addWidget(self.cancel_button)
+        self.horizontalLayout_6.addWidget(self.btnCancel)
 
 
         self.verticalLayout_4.addLayout(self.horizontalLayout_6)
@@ -193,17 +194,17 @@ class Ui_MainWindow(object):
         self.label.setText(QCoreApplication.translate("MainWindow", u"Pages:", None))
         self.btnAddPage.setText(QCoreApplication.translate("MainWindow", u"Add Page", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"Page Identifiers:", None))
-        self.pushButton.setText(QCoreApplication.translate("MainWindow", u"Add Identifier", None))
-        self.pushButton_2.setText(QCoreApplication.translate("MainWindow", u"Remove Identifier", None))
+        self.btnAddIdentifer.setText(QCoreApplication.translate("MainWindow", u"Add Identifier", None))
+        self.btnRemoveIdentifier.setText(QCoreApplication.translate("MainWindow", u"Remove Identifier", None))
         self.label_3.setText(QCoreApplication.translate("MainWindow", u"Interactive Elements:", None))
-        self.pushButton_5.setText(QCoreApplication.translate("MainWindow", u"Add Iterfactive", None))
-        self.pushButton_6.setText(QCoreApplication.translate("MainWindow", u"Remove Iterfactive", None))
+        self.btnAddInteractive.setText(QCoreApplication.translate("MainWindow", u"Add Iteractive", None))
+        self.btnRemoveInteractive.setText(QCoreApplication.translate("MainWindow", u"Remove Iteractive", None))
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"Transitions:", None))
-        self.pushButton_7.setText(QCoreApplication.translate("MainWindow", u"Add Transition", None))
-        self.pushButton_8.setText(QCoreApplication.translate("MainWindow", u"Remove Transition", None))
+        self.btnAddTransition.setText(QCoreApplication.translate("MainWindow", u"Add Transition", None))
+        self.btnRemoveTransition.setText(QCoreApplication.translate("MainWindow", u"Remove Transition", None))
         self.label_5.setText(QCoreApplication.translate("MainWindow", u"Page Elements:", None))
-        self.btnAddPage_2.setText(QCoreApplication.translate("MainWindow", u"New Element", None))
-        self.save_button.setText(QCoreApplication.translate("MainWindow", u"Save", None))
-        self.cancel_button.setText(QCoreApplication.translate("MainWindow", u"Cancel", None))
+        self.btnNewElement.setText(QCoreApplication.translate("MainWindow", u"New Element", None))
+        self.btnSave.setText(QCoreApplication.translate("MainWindow", u"Save", None))
+        self.btnCancel.setText(QCoreApplication.translate("MainWindow", u"Cancel", None))
     # retranslateUi
 

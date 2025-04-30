@@ -57,14 +57,14 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
-           <widget class="QPushButton" name="pushButton">
+           <widget class="QPushButton" name="btnAddIdentifer">
             <property name="text">
              <string>Add Identifier</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_2">
+           <widget class="QPushButton" name="btnRemoveIdentifier">
             <property name="text">
              <string>Remove Identifier</string>
             </property>
@@ -85,16 +85,16 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_4">
           <item>
-           <widget class="QPushButton" name="pushButton_5">
+           <widget class="QPushButton" name="btnAddInteractive">
             <property name="text">
-             <string>Add Iterfactive</string>
+             <string>Add Iteractive</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_6">
+           <widget class="QPushButton" name="btnRemoveInteractive">
             <property name="text">
-             <string>Remove Iterfactive</string>
+             <string>Remove Iteractive</string>
             </property>
            </widget>
           </item>
@@ -113,14 +113,14 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_5">
           <item>
-           <widget class="QPushButton" name="pushButton_7">
+           <widget class="QPushButton" name="btnAddTransition">
             <property name="text">
              <string>Add Transition</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_8">
+           <widget class="QPushButton" name="btnRemoveTransition">
             <property name="text">
              <string>Remove Transition</string>
             </property>
@@ -140,10 +140,14 @@
          </widget>
         </item>
         <item>
-         <widget class="QTreeView" name="treeView"/>
+         <widget class="QTreeView" name="element_tree">
+          <property name="autoScroll">
+           <bool>true</bool>
+          </property>
+         </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnAddPage_2">
+         <widget class="QPushButton" name="btnNewElement">
           <property name="text">
            <string>New Element</string>
           </property>
@@ -156,14 +160,14 @@
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_6">
       <item>
-       <widget class="QPushButton" name="save_button">
+       <widget class="QPushButton" name="btnSave">
         <property name="text">
          <string>Save</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="cancel_button">
+       <widget class="QPushButton" name="btnCancel">
         <property name="text">
          <string>Cancel</string>
         </property>

@@ -11,10 +11,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QInputDialog,
                                QLabel, QListView, QMainWindow, QMessageBox,
-                               QPushButton, QTreeView, QVBoxLayout, QWidget)
+                               QPushButton, QVBoxLayout)
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
+from picker.designer.main import Ui_MainWindow
 from picker.overlay.overlay_manager import OverlayManager
 from picker.overlay.overlay_widget import OverlayWidget
 from processor.elements import ImageElement, PixelColorElement
@@ -73,36 +74,33 @@ def _create_item_from_element(element, element_id, display_suffix=""):
     return item
 
 
-class PageConfigWindow(QMainWindow):
+class MainWindow(QMainWindow):
     """Main window for managing page configurations."""
 
     def __init__(
             self, config_manager: PageConfigManager,
-            window_capturer: WindowCapturer, parent=None
+            window_capturer: WindowCapturer
     ):
         """Initialize the page config window.
-        
+
         Args:
             config_manager: The page configuration manager
             window_capturer: Window capturer for screenshots
-            parent: Parent widget
         """
-        super().__init__(parent)
+        super().__init__()
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
         self.config_manager = config_manager
         self.window_capturer = window_capturer
-
         # Set window properties
         self.setWindowTitle("NIKKE Page Configuration")
         self.resize(1200, 800)
-
         # Set up overlay manager
         self.overlay_widget = OverlayWidget(window_capturer.window_manager)
         self.overlay_manager = OverlayManager(self.overlay_widget, self.window_capturer)
-
         # Connect overlay signals
         self.overlay_manager.capture_completed.connect(self._on_capture_completed)
         self.overlay_manager.capture_cancelled.connect(self._on_capture_cancelled)
-
         # Track current element creation
         self.current_element_name: Optional[str] = None
         self.current_page_id: Optional[str] = None
@@ -110,137 +108,51 @@ class PageConfigWindow(QMainWindow):
         # Initialize UI
         self._init_ui()
         self._load_pages()
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
     def _init_ui(self):
         """Initialize the dialog UI."""
         # Create central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # Main layout
-        main_layout = QHBoxLayout()
-
-        # Left side - Pages
-        page_layout = QVBoxLayout()
-        page_layout.addWidget(QLabel("Pages:"))
-
-        # Page tree view
         self.page_model = QStandardItemModel()
         self.page_model.setHorizontalHeaderLabels(["Page"])
-        self.page_tree = QTreeView()
-        self.page_tree.setModel(self.page_model)
-        self.page_tree.selectionModel().selectionChanged.connect(self._on_page_selected)
-        page_layout.addWidget(self.page_tree)
+        self.ui.page_tree.setModel(self.page_model)
+        self.ui.page_tree.selectionModel().selectionChanged.connect(self._on_page_selected)
 
-        # Page buttons
-        page_button_layout = QHBoxLayout()
-        self.add_page_button = QPushButton("Add Page")
-        self.add_page_button.clicked.connect(self._add_page)
-        page_button_layout.addWidget(self.add_page_button)
-
-        page_layout.addLayout(page_button_layout)
-
-        # Middle - Page details
-        detail_layout = QVBoxLayout()
-
-        # Page identifiers
-        detail_layout.addWidget(QLabel("Page Identifiers:"))
+        self.ui.btnAddPage.clicked.connect(self._add_page)
         self.identifier_model = QStandardItemModel()
-        self.identifier_list = QListView()
-        self.identifier_list.setModel(self.identifier_model)
-        detail_layout.addWidget(self.identifier_list)
+        self.ui.identifier_list = QListView()
+        self.ui.identifier_list.setModel(self.identifier_model)
 
-        # Identifier buttons
-        id_button_layout = QHBoxLayout()
-        self.add_identifier_button = QPushButton("Add Identifier")
-        self.add_identifier_button.clicked.connect(self._add_identifier)
-        self.remove_identifier_button = QPushButton("Remove Identifier")
-        self.remove_identifier_button.clicked.connect(self._remove_identifier)
-        id_button_layout.addWidget(self.add_identifier_button)
-        id_button_layout.addWidget(self.remove_identifier_button)
-        detail_layout.addLayout(id_button_layout)
+        self.ui.btnAddIdentifer.clicked.connect(self._add_identifier)
+        self.ui.btnRemoveIdentifier.clicked.connect(self._remove_identifier)
 
-        # Interactive elements
-        detail_layout.addWidget(QLabel("Interactive Elements:"))
         self.interactive_model = QStandardItemModel()
-        self.interactive_list = QListView()
-        self.interactive_list.setModel(self.interactive_model)
-        detail_layout.addWidget(self.interactive_list)
+        self.ui.interactive_list.setModel(self.interactive_model)
 
         # Interactive buttons
-        interact_button_layout = QHBoxLayout()
-        self.add_interactive_button = QPushButton("Add Interactive")
-        self.add_interactive_button.clicked.connect(self._add_interactive)
-        self.remove_interactive_button = QPushButton("Remove Interactive")
-        self.remove_interactive_button.clicked.connect(self._remove_interactive)
-        interact_button_layout.addWidget(self.add_interactive_button)
-        interact_button_layout.addWidget(self.remove_interactive_button)
-        detail_layout.addLayout(interact_button_layout)
-
+        self.ui.btnAddInteractive.clicked.connect(self._add_interactive)
+        self.ui.btnRemoveInteractive.clicked.connect(self._remove_interactive)
         # Transitions
-        detail_layout.addWidget(QLabel("Transitions:"))
         self.transition_model = QStandardItemModel()
         self.transition_model.setHorizontalHeaderLabels(["Element", "Target Page"])
-        self.transition_tree = QTreeView()
-        self.transition_tree.setModel(self.transition_model)
-        detail_layout.addWidget(self.transition_tree)
+        self.ui.transition_tree.setModel(self.transition_model)
 
-        # Transition buttons
-        transition_button_layout = QHBoxLayout()
-        self.add_transition_button = QPushButton("Add Transition")
-        self.add_transition_button.clicked.connect(self._add_transition)
-        self.remove_transition_button = QPushButton("Remove Transition")
-        self.remove_transition_button.clicked.connect(self._remove_transition)
-        transition_button_layout.addWidget(self.add_transition_button)
-        transition_button_layout.addWidget(self.remove_transition_button)
-        detail_layout.addLayout(transition_button_layout)
+        self.ui.btnAddTransition.clicked.connect(self._add_transition)
+        self.ui.btnRemoveTransition.clicked.connect(self._remove_transition)
 
-        # Right side - Elements for current page
-        element_layout = QVBoxLayout()
-        element_layout.addWidget(QLabel("Page Elements:"))
-
-        # Element tree view
         self.element_model = QStandardItemModel()
         self.element_model.setHorizontalHeaderLabels(["ID", "Name", "Type"])
-        self.element_tree = QTreeView()
-        self.element_tree.setModel(self.element_model)
-        element_layout.addWidget(self.element_tree)
+        self.ui.element_tree.setModel(self.element_model)
 
-        # Element buttons
-        element_button_layout = QHBoxLayout()
-        self.add_element_button = QPushButton("New Element")
-        self.add_element_button.clicked.connect(self._add_element)
-        element_button_layout.addWidget(self.add_element_button)
-        element_layout.addLayout(element_button_layout)
+        self.ui.btnNewElement.clicked.connect(self._add_element)
 
-        # Add layouts to main layout
-        main_layout.addLayout(page_layout, 1)
-        main_layout.addLayout(detail_layout, 2)
-        main_layout.addLayout(element_layout, 1)
-
-        # Dialog buttons
-        button_layout = QHBoxLayout()
-        self.save_button = QPushButton("Save")
-        self.save_button.clicked.connect(self._save_config)
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.close)
-        button_layout.addWidget(self.save_button)
-        button_layout.addWidget(self.cancel_button)
-
-        # Create outer layout
-        outer_layout = QVBoxLayout()
-        outer_layout.addLayout(main_layout)
-        outer_layout.addLayout(button_layout)
-        
-        # Set the layout on the central widget
-        central_widget.setLayout(outer_layout)
-
+        self.ui.btnSave.clicked.connect(self._save_config)
+        self.ui.btnCancel.clicked.connect(self.close)
         # Create status bar
         self.status_bar = self.statusBar()
-        
         # Disable page detail controls initially
         self._set_detail_controls_enabled(False)
-        self.add_element_button.setEnabled(False)
+        self.ui.btnNewElement.setEnabled(False)
 
     def _set_detail_controls_enabled(self, enabled: bool):
         """Enable or disable page detail controls.
@@ -248,13 +160,13 @@ class PageConfigWindow(QMainWindow):
         Args:
             enabled: Whether to enable the controls
         """
-        self.add_identifier_button.setEnabled(enabled)
-        self.remove_identifier_button.setEnabled(enabled)
-        self.add_interactive_button.setEnabled(enabled)
-        self.remove_interactive_button.setEnabled(enabled)
-        self.add_transition_button.setEnabled(enabled)
-        self.remove_transition_button.setEnabled(enabled)
-        self.add_element_button.setEnabled(enabled)
+        self.ui.btnAddIdentifer.setEnabled(enabled)
+        self.ui.btnRemoveIdentifier.setEnabled(enabled)
+        self.ui.btnAddInteractive.setEnabled(enabled)
+        self.ui.btnRemoveInteractive.setEnabled(enabled)
+        self.ui.btnAddTransition.setEnabled(enabled)
+        self.ui.btnRemoveTransition.setEnabled(enabled)
+        self.ui.btnNewElement.setEnabled(enabled)
 
     def _load_pages(self):
         """Load pages from configuration into the tree view."""
@@ -286,7 +198,7 @@ class PageConfigWindow(QMainWindow):
 
     def _on_page_selected(self):
         """Handle page selection changes."""
-        indexes = self.page_tree.selectedIndexes()
+        indexes = self.ui.page_tree.selectedIndexes()
         if not indexes:
             self._set_detail_controls_enabled(False)
             return
@@ -348,7 +260,7 @@ class PageConfigWindow(QMainWindow):
         Returns:
             str or None: The selected page ID, or None if no page is selected
         """
-        indexes = self.page_tree.selectedIndexes()
+        indexes = self.ui.page_tree.selectedIndexes()
         if not indexes:
             return None
 
@@ -361,7 +273,7 @@ class PageConfigWindow(QMainWindow):
         Returns:
             str or None: The selected element ID, or None if no element is selected
         """
-        indexes = self.element_tree.selectedIndexes()
+        indexes = self.ui.element_tree.selectedIndexes()
         if not indexes:
             return None
 
@@ -465,7 +377,7 @@ class PageConfigWindow(QMainWindow):
 
     def _on_capture_completed(self, strategy_type: str, capture_data: Any):
         """Handle element capture completion.
-        
+
         Args:
             strategy_type: Type of the capture strategy
             capture_data: Captured element data
@@ -577,7 +489,7 @@ class PageConfigWindow(QMainWindow):
             return
 
         # Get selected identifier
-        id_indexes = self.identifier_list.selectedIndexes()
+        id_indexes = self.ui.identifier_list.selectedIndexes()
         if not id_indexes:
             QMessageBox.warning(self, "Warning", "Please select an identifier first")
             return
@@ -629,7 +541,7 @@ class PageConfigWindow(QMainWindow):
             return
 
         # Get selected interactive element
-        int_indexes = self.interactive_list.selectedIndexes()
+        int_indexes = self.ui.interactive_list.selectedIndexes()
         if not int_indexes:
             QMessageBox.warning(self, "Warning", "Please select an interactive element first")
             return
@@ -692,7 +604,7 @@ class PageConfigWindow(QMainWindow):
             return
 
         # Get selected transition
-        trans_indexes = self.transition_tree.selectedIndexes()
+        trans_indexes = self.ui.transition_tree.selectedIndexes()
         if not trans_indexes:
             QMessageBox.warning(self, "Warning", "Please select a transition first")
             return
@@ -728,7 +640,7 @@ class PageConfigWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event.
-        
+
         Args:
             event: Close event
         """
@@ -843,11 +755,11 @@ class TargetPageDialog(QDialog):
 
 def run_config_window(config_path, window_capturer):
     """Run the page configuration window.
-    
+
     Args:
         config_path: Path to configuration file
         window_capturer: Window capturer instance
-        
+
     Returns:
         int: Application exit code
     """
@@ -862,7 +774,7 @@ def run_config_window(config_path, window_capturer):
     app = QApplication.instance() or QApplication(sys.argv)
 
     # Create and show window
-    window = PageConfigWindow(config_manager, window_capturer)
+    window = MainWindow(config_manager, window_capturer)
     window.show()
 
     # Run application
