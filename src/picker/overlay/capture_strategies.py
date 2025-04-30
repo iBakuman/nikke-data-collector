@@ -59,6 +59,7 @@ class CaptureStrategy(QObject, ABC, metaclass=ABCQObjectMeta):
         self._connect_signals()
         self._initialize_visuals()
         self.capture_started.emit()
+        self.overlay.show()
 
     def _connect_signals(self) -> None:
         """Connect to overlay signals."""

@@ -6,7 +6,7 @@ This demonstrates how to add the page configuration button to a picker applicati
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QTimer
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QApplication, QLabel, QMainWindow, QToolBar,
                                QVBoxLayout, QWidget)
 
@@ -49,13 +49,16 @@ class SimplePickerApp(QMainWindow):
         self.page_config_button = PageConfigButton(str(config_path), self)
         self.toolbar.addWidget(self.page_config_button)
 
-
 if __name__ == "__main__":
     """Run the simple picker application."""
     import sys
-    
+
+    QGuiApplication.setAttribute()
     app = QApplication(sys.argv)
-    
+    screen = QGuiApplication.primaryScreen()
+    ratio = screen.devicePixelRatio()
+    print(ratio)
+
     picker = SimplePickerApp()
     picker.show()
     

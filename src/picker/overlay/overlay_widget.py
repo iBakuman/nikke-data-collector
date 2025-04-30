@@ -7,7 +7,7 @@ mouse events and displays visual elements for user interaction.
 from typing import Any, List, Optional
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal, QTimer
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QCloseEvent
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QCloseEvent, QGuiApplication
 from PySide6.QtWidgets import QWidget
 
 from collector.window_manager import WindowManager
@@ -15,6 +15,8 @@ from log.config import get_logger
 from picker.overlay.visual_elements import VisualElement
 
 logger = get_logger(__name__)
+
+
 
 
 class OverlayWidget(QWidget):
@@ -58,10 +60,16 @@ class OverlayWidget(QWidget):
         self.timer.disconnect()
         super().closeEvent(event)
 
+    def setGeometry(self, rect: QRect, /):
+        screen = QGuiApplication.primaryScreen()
+        ratio = screen.devicePixelRatio()
+        newRect = QRect(int(rect.left() / ratio), int(rect.top() / ratio), int(rect.width() / ratio), int(rect.height() / ratio))
+        super().setGeometry(newRect)
+
     def show(self) -> None:
         """Show the overlay widget."""
         rect = self.window_manager.rect
-        self.setGeometry(rect.left, rect.top, rect.width, rect.height)
+        self.setGeometry(QRect(rect.left, rect.top, rect.width, rect.height))
         self.timer.start()
         super().show()
 
@@ -77,7 +85,8 @@ class OverlayWidget(QWidget):
         overlay_size = self.width(), self.height()
         if current_pos != overlay_pos or current_size != overlay_size:
             logger.info(f"Nikke window changed. Updating overlay geometry to {current_rect}")
-            self.setGeometry(current_rect.left, current_rect.top, current_rect.width, current_rect.height)
+            self.setGeometry(QRect( current_rect.left, current_rect.top, current_rect.width, current_rect.height))
+
     def hide(self):
         self.timer.stop()
         super().hide()
@@ -151,11 +160,13 @@ class OverlayWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Create semi-transparent overlay
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 1))  # Almost transparent
+        painter.fillRect(self.rect(), QColor(0, 0, 255))  # Almost transparent
 
         # Draw all visual elements
         for element in self._visual_elements:
             element.draw(painter)
+
+        super().paintEvent(event)  # Call parent's paintEvent()
 
     def get_geometry(self) -> QRect:
         """Get the current geometry of the overlay.

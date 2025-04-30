@@ -6,7 +6,6 @@ This module demonstrates how to:
 2. Configure those elements as page identifiers or interactive elements
 3. Define page transitions for automation
 """
-
 import sys
 from typing import Dict, Optional
 

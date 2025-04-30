@@ -52,7 +52,6 @@ class WindowManager:
         if not rect:
             raise Exception("Failed to get window rect")
         self._window_info = WindowInfo(hwnd, rect, self.standard_width, self.standard_height)
-        logger.info(f"Got window info: {self._window_info}")
 
     def get_window_info(self) -> WindowInfo:
         self._update_window_info()
