@@ -7,26 +7,25 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import win32gui
-from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 from PIL import ImageDraw
 from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (QComboBox, QFrame, QInputDialog, QLabel,
                                QMessageBox, QPushButton, QToolBar, QVBoxLayout,
                                QWidget)
+from dataclass_wizard.serial_json import JSONPyWizard, JSONWizard
 
 from collector.logging_config import get_logger
 from collector.ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, get_window_rect
+from data import get_page_config_path
 from domain.color import Color
 from domain.image_element import ImageElementEntity
 from domain.pixel_element import PixelColorElementEntity
 from domain.regions import Point
 from mixin.json import JSONSerializableMixin
 from processor.page_config import PageConfigManager
-
-from .data import get_page_config_path
 from .picker_page_config import PageConfigDialog
 
 logger = get_logger(__name__)

@@ -1,3 +1,3 @@
-from .picker import PickerApp
+from .main import PickerApp
 
 __all__ = ["PickerApp"]
