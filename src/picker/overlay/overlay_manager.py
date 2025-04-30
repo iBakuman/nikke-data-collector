@@ -4,7 +4,7 @@ Overlay manager for coordinating element capture.
 This module provides a manager class that coordinates between the
 overlay widget and capture strategies for different element types.
 """
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
@@ -14,7 +14,8 @@ from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
 from picker.overlay.capture_strategies import (CaptureStrategy,
                                                ImageElementCaptureStrategy,
-                                               PixelColorCaptureStrategy)
+                                               PixelColorCaptureStrategy,
+                                               StrategyInfo)
 from picker.overlay.overlay_widget import OverlayWidget
 
 logger = get_logger(__name__)
@@ -118,17 +119,44 @@ class OverlayManager(QObject):
         self.current_strategy: Optional[CaptureStrategy] = None
         self.original_state: Optional[Dict[str, Any]] = None
         
-        # Strategy type mapping
-        self.strategy_types = {
-            "pixel_color": PixelColorCaptureStrategy,
-            "image_element": ImageElementCaptureStrategy
-        }
+        # Strategy registry 
+        self.strategy_infos: Dict[str, StrategyInfo] = {}
+        self._register_builtin_strategies()
     
-    def start_capture(self, strategy_type: str) -> Optional[Any]:
+    def _register_builtin_strategies(self):
+        """Register built-in capture strategies."""
+        self.register_strategy(PixelColorCaptureStrategy)
+        self.register_strategy(ImageElementCaptureStrategy)
+    
+    def register_strategy(self, strategy_class: Type[CaptureStrategy]):
+        """Register a capture strategy.
+        
+        Args:
+            strategy_class: Strategy class to register
+            
+        Raises:
+            ValueError: If strategy type already exists
+        """
+        strategy_info = strategy_class.get_strategy_info()
+        if strategy_info.type_id in self.strategy_infos:
+            raise ValueError(f"Strategy type '{strategy_info.type_id}' already registered")
+        
+        self.strategy_infos[strategy_info.type_id] = strategy_info
+        logger.debug(f"Registered strategy: {strategy_info.display_name} ({strategy_info.type_id})")
+    
+    def get_strategy_infos(self) -> List[StrategyInfo]:
+        """Get all registered strategy information.
+        
+        Returns:
+            List of strategy information objects
+        """
+        return list(self.strategy_infos.values())
+    
+    def start_capture(self, strategy_type_id: str) -> Optional[Any]:
         """Start capture process with specified strategy type.
         
         Args:
-            strategy_type: Type of capture strategy ("pixel_color" or "image_element")
+            strategy_type_id: Type ID of capture strategy
             
         Returns:
             Capture result data or None if cancelled
@@ -137,21 +165,23 @@ class OverlayManager(QObject):
             ValueError: If strategy type is unknown
         """
         # Check if strategy type is valid
-        if strategy_type not in self.strategy_types:
-            raise ValueError(f"Unknown capture strategy type: {strategy_type}")
+        if strategy_type_id not in self.strategy_infos:
+            raise ValueError(f"Unknown capture strategy type: {strategy_type_id}")
+        
+        # Get strategy info
+        strategy_info = self.strategy_infos[strategy_type_id]
         
         # Save original overlay state
         self._save_original_state()
         
         # Create strategy instance
-        strategy_class = self.strategy_types[strategy_type]
-        self.current_strategy = strategy_class(self.overlay, self.window_capturer)
+        self.current_strategy = strategy_info.strategy_class(self.overlay, self.window_capturer)
         
         # Create and configure capture dialog
         dialog = CaptureDialog(self.current_strategy)
         
         # Start capture
-        self.capture_started.emit(strategy_type)
+        self.capture_started.emit(strategy_type_id)
         self.current_strategy.start_capture()
         
         # Show dialog and wait for completion
@@ -161,7 +191,7 @@ class OverlayManager(QObject):
         capture_result = None
         if result == QDialog.DialogCode.Accepted and self.current_strategy.result_data:
             capture_result = self.current_strategy.result_data
-            self.capture_completed.emit(strategy_type, capture_result)
+            self.capture_completed.emit(strategy_type_id, capture_result)
         else:
             self.capture_cancelled.emit()
         
@@ -189,19 +219,4 @@ class OverlayManager(QObject):
         
         # Restore original visual elements
         for element in self.original_state["visual_elements"]:
-            self.overlay.add_visual_element(element)
-    
-    def register_strategy_type(self, type_name: str, strategy_class: Type[CaptureStrategy]):
-        """Register a new capture strategy type.
-        
-        Args:
-            type_name: Name for the strategy type
-            strategy_class: Strategy class to register
-            
-        Raises:
-            ValueError: If strategy type name already exists
-        """
-        if type_name in self.strategy_types:
-            raise ValueError(f"Strategy type '{type_name}' already registered")
-        
-        self.strategy_types[type_name] = strategy_class 
+            self.overlay.add_visual_element(element) 

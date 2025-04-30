@@ -12,17 +12,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, Union
 
-from dataclass_wizard import JSONWizard
-from PySide6.QtCore import QObject
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QMessageBox,
                                QPushButton, QVBoxLayout)
+from dataclass_wizard import JSONWizard
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
-from domain.color import Color
 from domain.image_element import ImageElementEntity
 from domain.pixel_element import PixelColorElementEntity
-from domain.regions import Point, Region
+from domain.regions import Region
 from processor.elements import ImageElement, PixelColorElement, UIElement
 
 logger = get_logger(__name__)
@@ -289,40 +287,15 @@ class PixelColorElementHandler(ElementTypeHandler):
         Returns:
             Created pixel color element or None if cancelled
         """
-        try:
-            # Find the main window with PickerApp
-            main_window = parent.window()
-            app_instance = None
-            
-            # Look for an object with overlay_controller attribute
-            for widget in main_window.findChildren(QObject):
-                if hasattr(widget, 'overlay_controller'):
-                    app_instance = widget
-                    break
-            
-            if not app_instance:
-                QMessageBox.critical(parent, "Error", "Could not find overlay controller")
-                return None
-            
-            # Import the pixel color capture function
-            from picker.picker_pixel_color import capture_pixel_colors
+        # TODO
+        # if points_colors and len(points_colors) > 0:
+        #     # Create element
+        #     return PixelColorElement(
+        #         name="Temp Name",  # Will be overwritten by caller
+        #         points_colors=points_colors,
+        #         match_all=True  # Default to match all points
+        #     )
 
-            # Use the overlay controller to capture points
-            points_colors = capture_pixel_colors(app_instance.overlay_controller)
-            
-            if points_colors and len(points_colors) > 0:
-                # Create element
-                return PixelColorElement(
-                    name="Temp Name",  # Will be overwritten by caller
-                    points_colors=points_colors,
-                    match_all=True  # Default to match all points
-                )
-                
-        except Exception as e:
-            logger.exception(f"Error creating pixel color element: {e}")
-            QMessageBox.critical(parent, "Error", f"Failed to create pixel color element: {str(e)}")
-            
-        return None
 
     @classmethod
     def to_config(cls, element: PixelColorElement, element_id: str) -> ElementConfig:
@@ -391,7 +364,6 @@ class ElementTypeRegistry:
 # Register built-in handlers
 ElementTypeRegistry.register_handler(ImageElementHandler)
 ElementTypeRegistry.register_handler(PixelColorElementHandler)
-
 
 class PageConfigManager:
     """Manager for loading, saving, and using page configurations."""

@@ -1,3 +1,7 @@
-from .main import PickerApp
+"""
+NIKKE data picker module.
 
-__all__ = ["PickerApp"]
+This module provides tools for selecting and configuring UI elements
+from the NIKKE game client.
+"""
+

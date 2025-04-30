@@ -5,14 +5,20 @@ This module extends the original picker UI to support designating elements
 as page identifiers or interactive elements, and to define transitions between pages.
 """
 
+from typing import Any, Optional
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QInputDialog,
-                               QLabel, QLineEdit, QListView, QMessageBox,
-                               QPushButton, QTreeView, QVBoxLayout)
+from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout,
+                               QInputDialog, QLabel, QListView, QMainWindow,
+                               QMessageBox, QPushButton, QTreeView, QVBoxLayout)
 
 from collector.logging_config import get_logger
-from processor.page_config import ElementTypeRegistry, PageConfigManager
+from collector.window_capturer import WindowCapturer
+from picker.overlay.overlay_manager import OverlayManager
+from picker.overlay.overlay_widget import OverlayWidget
+from processor.elements import ImageElement, PixelColorElement
+from processor.page_config import PageConfigManager
 
 logger = get_logger(__name__)
 
@@ -67,89 +73,41 @@ def _create_item_from_element(element, element_id, display_suffix=""):
     return item
 
 
-class ElementCreationDialog(QDialog):
-    """Dialog for creating a new element."""
+class PageConfigWindow(QMainWindow):
+    """Main window for managing page configurations."""
 
-    def __init__(self, page_id: str, parent=None):
-        """Initialize the element creation dialog.
-
-        Args:
-            page_id: ID of the page to add the element to
-            parent: Parent widget
-        """
-        super().__init__(parent)
-        self.page_id = page_id
-        self.element = None
-
-        self.setWindowTitle("Create Element")
-        self.resize(400, 300)
-
-        self._init_ui()
-
-    def _init_ui(self):
-        """Initialize the dialog UI."""
-        layout = QVBoxLayout(self)
-
-        # Element type selection
-        layout.addWidget(QLabel("Element Type:"))
-
-        self.type_combo = QComboBox()
-        for type_id, handler in ElementTypeRegistry.get_all_handlers().items():
-            self.type_combo.addItem(type_id, type_id)
-        layout.addWidget(self.type_combo)
-
-        # Element name input
-        layout.addWidget(QLabel("Element Name:"))
-        self.name_input = QLineEdit()
-        layout.addWidget(self.name_input)
-
-        # Buttons
-        button_layout, self.create_button, self.cancel_button = _create_dialog_buttons(
-            self, "Create", self._on_create
-        )
-        layout.addLayout(button_layout)
-
-    def _on_create(self):
-        """Handle create button click."""
-        element_type = self.type_combo.currentData()
-        element_name = self.name_input.text()
-
-        if not element_name:
-            QMessageBox.warning(self, "Warning", "Please enter an element name")
-            return
-
-        # Get handler for element type
-        handler = ElementTypeRegistry.get_handler(element_type)
-        if not handler:
-            QMessageBox.critical(self, "Error", f"No handler found for element type: {element_type}")
-            return
-
-        # Create element
-        self.element = handler.create_element_ui(self)
-
-        if self.element:
-            # Set element name
-            self.element.name = element_name
-            self.accept()
-        else:
-            QMessageBox.warning(self, "Warning", "Element creation cancelled or failed")
-
-
-class PageConfigDialog(QDialog):
-    """Dialog for managing page configurations."""
-
-    def __init__(self, config_manager: PageConfigManager, parent=None):
-        """Initialize the page config dialog.
-
+    def __init__(
+            self, config_manager: PageConfigManager,
+            window_capturer: WindowCapturer, parent=None
+    ):
+        """Initialize the page config window.
+        
         Args:
             config_manager: The page configuration manager
+            window_capturer: Window capturer for screenshots
             parent: Parent widget
         """
         super().__init__(parent)
         self.config_manager = config_manager
-        self.setWindowTitle("Page Configuration")
-        self.resize(800, 600)
+        self.window_capturer = window_capturer
 
+        # Set window properties
+        self.setWindowTitle("NIKKE Page Configuration")
+        self.resize(1200, 800)
+
+        # Set up overlay manager
+        self.overlay_widget = OverlayWidget(window_capturer.window_manager)
+        self.overlay_manager = OverlayManager(self.overlay_widget, self.window_capturer)
+
+        # Connect overlay signals
+        self.overlay_manager.capture_completed.connect(self._on_capture_completed)
+        self.overlay_manager.capture_cancelled.connect(self._on_capture_cancelled)
+
+        # Track current element creation
+        self.current_element_name: Optional[str] = None
+        self.current_page_id: Optional[str] = None
+
+        # Initialize UI
         self._init_ui()
         self._load_pages()
 
@@ -256,7 +214,7 @@ class PageConfigDialog(QDialog):
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self._save_config)
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.clicked.connect(self.close)
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.cancel_button)
 
@@ -420,30 +378,161 @@ class PageConfigDialog(QDialog):
             item.setData(page_id, Qt.ItemDataRole.UserRole)
             self.page_model.appendRow(item)
 
+            # Show status message
+            self.status_bar.showMessage(f"Added page: {page_name}", 3000)
+
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
 
     def _add_element(self):
-        """Add a new element to the current page."""
-        # Get selected page
+        """Add a new element to the current page using overlay capture."""
+        # Check if a page is selected
         page_id = self._get_selected_page_id()
         if not page_id:
+            QMessageBox.warning(self, "Warning", "Please select a page first")
             return
 
-        # Show element creation dialog
-        dialog = ElementCreationDialog(page_id, self)
-        if dialog.exec():
-            element = dialog.element
+        # Get available strategy types
+        strategy_infos = self.overlay_manager.get_strategy_infos()
+        if not strategy_infos:
+            QMessageBox.warning(self, "Warning", "No element types available")
+            return
+
+        # Prepare display items for selection dialog
+        display_names = [info.display_name for info in strategy_infos]
+
+        # Show strategy selection dialog
+        selected_index, ok = QInputDialog.getItem(
+            self, "Select Element Type",
+            "Select the type of element to create:",
+            display_names,
+            0,  # Default to first item
+            False  # Not editable
+        )
+
+        if not ok:
+            return
+
+        # Find selected strategy info
+        selected_index_pos = display_names.index(selected_index)
+        if selected_index_pos < 0 or selected_index_pos >= len(strategy_infos):
+            QMessageBox.critical(self, "Error", "Invalid element type selection")
+            return
+
+        strategy_info = strategy_infos[selected_index_pos]
+
+        # Get element name
+        element_name, ok = QInputDialog.getText(
+            self, "Add Element", "Element Name:"
+        )
+        if not ok or not element_name:
+            return
+
+        # Try to capture target window
+        capture_result = self.window_capturer.capture_window()
+        if not capture_result:
+            QMessageBox.critical(self, "Error", "Failed to capture target window")
+            return
+
+        # Store current element creation context
+        self.current_element_name = element_name
+        self.current_page_id = page_id
+
+        # Update status
+        self.status_bar.showMessage(f"Capturing {strategy_info.display_name}...")
+
+        # Start capture process
+        try:
+            result = self.overlay_manager.start_capture(strategy_info.type_id)
+            if result is None:
+                # Capture was cancelled
+                self.status_bar.showMessage("Element capture cancelled", 3000)
+                self.current_element_name = None
+                self.current_page_id = None
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to start capture: {e}")
+            self.current_element_name = None
+            self.current_page_id = None
+
+    def _on_capture_completed(self, strategy_type: str, capture_data: Any):
+        """Handle element capture completion.
+        
+        Args:
+            strategy_type: Type of the capture strategy
+            capture_data: Captured element data
+        """
+        # Check if we have a valid capture context
+        if not self.current_element_name or not self.current_page_id:
+            logger.warning("Received capture completion but no active element creation context")
+            return
+
+        # Check if capture data is valid
+        if not capture_data:
+            QMessageBox.critical(self, "Error", "No capture data received")
+            self.current_element_name = None
+            self.current_page_id = None
+            return
+
+        try:
+            # Create element based on strategy type
+            element = None
+
+            if strategy_type == "pixel_color":
+                # Check for required data
+                if "points_colors" not in capture_data:
+                    raise ValueError("Missing points_colors in capture data")
+
+                # Create pixel color element
+                element = PixelColorElement(
+                    name=self.current_element_name,
+                    points_colors=capture_data["points_colors"],
+                    match_all=capture_data.get("match_all", True)
+                )
+
+            elif strategy_type == "image_element":
+                # Check for required data
+                if "region" not in capture_data:
+                    raise ValueError("Missing region in capture data")
+                if "image" not in capture_data:
+                    raise ValueError("Missing image in capture data")
+
+                # Create image element
+                element = ImageElement(
+                    name=self.current_element_name,
+                    region=capture_data["region"],
+                    target_image=capture_data["image"],
+                    threshold=capture_data.get("threshold", 0.8)
+                )
+            else:
+                raise ValueError(f"Unsupported strategy type: {strategy_type}")
+
             if element:
-                try:
-                    # Add element to page
-                    element_id = self.config_manager.add_element(page_id, element)
+                # Add element to configuration
+                element_id = self.config_manager.add_element(
+                    self.current_page_id, element
+                )
 
-                    # Refresh page elements
-                    self._load_page_elements(page_id)
+                # Update UI
+                self._load_page_elements(self.current_page_id)
+                self.status_bar.showMessage(
+                    f"Added {element.name} to page", 3000
+                )
+            else:
+                raise ValueError("Failed to create element")
 
-                except ValueError as e:
-                    QMessageBox.critical(self, "Error", str(e))
+        except Exception as e:
+            logger.exception("Failed to create element")
+            QMessageBox.critical(self, "Error", f"Failed to create element: {e}")
+
+        # Clear current element creation context
+        self.current_element_name = None
+        self.current_page_id = None
+
+    def _on_capture_cancelled(self):
+        """Handle element capture cancellation."""
+        self.status_bar.showMessage("Element capture cancelled", 3000)
+        self.current_element_name = None
+        self.current_page_id = None
 
     def _add_identifier(self):
         """Add an identifier element to the current page."""
@@ -464,6 +553,9 @@ class PageConfigDialog(QDialog):
 
             # Refresh page details
             self._load_page_details(page_id)
+
+            # Show status message
+            self.status_bar.showMessage(f"Added element as page identifier", 3000)
 
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
@@ -491,6 +583,9 @@ class PageConfigDialog(QDialog):
         # Refresh page details
         self._load_page_details(page_id)
 
+        # Show status message
+        self.status_bar.showMessage(f"Removed element from page identifiers", 3000)
+
     def _add_interactive(self):
         """Add an interactive element to the current page."""
         # Get selected page
@@ -510,6 +605,9 @@ class PageConfigDialog(QDialog):
 
             # Refresh page details
             self._load_page_details(page_id)
+
+            # Show status message
+            self.status_bar.showMessage(f"Added element as interactive element", 3000)
 
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
@@ -536,6 +634,9 @@ class PageConfigDialog(QDialog):
 
         # Refresh page details
         self._load_page_details(page_id)
+
+        # Show status message
+        self.status_bar.showMessage(f"Removed element from interactive elements", 3000)
 
     def _add_transition(self):
         """Add a transition to the current page."""
@@ -564,6 +665,12 @@ class PageConfigDialog(QDialog):
 
                 # Refresh page details
                 self._load_page_details(page_id)
+
+                # Show status message
+                target_page = self.config_manager.config.pages[target_page_id]
+                self.status_bar.showMessage(
+                    f"Added transition to {target_page.name}", 3000
+                )
 
             except ValueError as e:
                 QMessageBox.critical(self, "Error", str(e))
@@ -599,13 +706,45 @@ class PageConfigDialog(QDialog):
         # Refresh page details
         self._load_page_details(page_id)
 
+        # Show status message
+        self.status_bar.showMessage(f"Removed transition", 3000)
+
     def _save_config(self):
-        """Save the configuration and close the dialog."""
+        """Save the configuration."""
         try:
             self.config_manager.save_config()
-            self.accept()
+            self.status_bar.showMessage("Configuration saved successfully", 3000)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
+
+    def closeEvent(self, event):
+        """Handle window close event.
+        
+        Args:
+            event: Close event
+        """
+        # Ask for confirmation if there are unsaved changes
+        # TODO: Track changes to detect unsaved modifications
+
+        reply = QMessageBox.question(
+            self, "Save Changes?",
+            "Do you want to save changes before closing?",
+            QMessageBox.StandardButton.Save |
+            QMessageBox.StandardButton.Discard |
+            QMessageBox.StandardButton.Cancel
+        )
+
+        if reply == QMessageBox.StandardButton.Save:
+            try:
+                self.config_manager.save_config()
+                event.accept()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+                event.ignore()
+        elif reply == QMessageBox.StandardButton.Cancel:
+            event.ignore()
+        else:
+            event.accept()
 
 
 class TargetPageDialog(QDialog):
@@ -693,22 +832,29 @@ class TargetPageDialog(QDialog):
         self.accept()
 
 
-# Button to add to the PickerApp
-class PageConfigButton(QPushButton):
-    """Button for showing the page configuration dialog."""
+def run_config_window(config_path, window_capturer):
+    """Run the page configuration window.
+    
+    Args:
+        config_path: Path to configuration file
+        window_capturer: Window capturer instance
+        
+    Returns:
+        int: Application exit code
+    """
+    import sys
 
-    def __init__(self, config_path: str, parent=None):
-        """Initialize the page config button.
+    from PySide6.QtWidgets import QApplication
 
-        Args:
-            config_path: Path to the JSON configuration file
-            parent: Parent widget
-        """
-        super().__init__("Page Config", parent)
-        self.config_manager = PageConfigManager(config_path)
-        self.clicked.connect(self._show_page_config_dialog)
+    # Create config manager
+    config_manager = PageConfigManager(config_path)
 
-    def _show_page_config_dialog(self):
-        """Show the page configuration dialog."""
-        dialog = PageConfigDialog(self.config_manager, self.parent())
-        dialog.exec()
+    # Create application
+    app = QApplication.instance() or QApplication(sys.argv)
+
+    # Create and show window
+    window = PageConfigWindow(config_manager, window_capturer)
+    window.show()
+
+    # Run application
+    return app.exec()

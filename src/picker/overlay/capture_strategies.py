@@ -5,8 +5,9 @@ This module provides strategies for capturing different types of elements
 using the overlay system. Each strategy defines the interaction flow for
 a specific type of element capture.
 """
-from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from abc import abstractmethod
+from dataclasses import dataclass
+from typing import Any, List, Optional, Type
 
 from PySide6.QtCore import QObject, QPoint, QRect, Signal
 from PySide6.QtGui import QColor, QMouseEvent
@@ -23,13 +24,16 @@ from picker.overlay.visual_elements import (PointElement, RectangleElement,
 logger = get_logger(__name__)
 
 
-# Fix for metaclass conflict
-class ABCQObjectMeta(type(QObject), type(ABC)):
-    """Metaclass that resolves conflict between QObject and ABC metaclasses."""
-    pass
+
+@dataclass
+class StrategyInfo:
+    """Information about a capture strategy."""
+    type_id: str        # Unique identifier
+    display_name: str   # User-friendly display name
+    strategy_class: Type['CaptureStrategy']  # Strategy class
 
 
-class CaptureStrategy(QObject, ABC, metaclass=ABCQObjectMeta):
+class CaptureStrategy(QObject):
     """Base abstract class for all element capture strategies."""
 
     # Signals
@@ -50,6 +54,7 @@ class CaptureStrategy(QObject, ABC, metaclass=ABCQObjectMeta):
         self.window_capturer = window_capturer
         self.current_step = 0
         self.result_data: Any = None
+        self.is_capturing = False
 
     @abstractmethod
     def start_capture(self) -> None:
@@ -60,6 +65,7 @@ class CaptureStrategy(QObject, ABC, metaclass=ABCQObjectMeta):
         self._initialize_visuals()
         self.capture_started.emit()
         self.overlay.show()
+        self.is_capturing = True
 
     def _connect_signals(self) -> None:
         """Connect to overlay signals."""
@@ -134,11 +140,22 @@ class CaptureStrategy(QObject, ABC, metaclass=ABCQObjectMeta):
         """Cancel the current capture process."""
         self._disconnect_signals()
         self.capture_cancelled.emit()
+        self.is_capturing = False
 
     def complete_capture(self) -> None:
         """Complete the capture process and emit result."""
         self._disconnect_signals()
         self.capture_completed.emit(self.result_data)
+        self.is_capturing = False
+
+    @classmethod
+    def get_strategy_info(cls) -> StrategyInfo:
+        """Get strategy information.
+
+        Returns:
+            StrategyInfo: Information about this strategy
+        """
+        raise NotImplementedError("Subclasses must implement get_strategy_info")
 
 
 class PixelColorCaptureStrategy(CaptureStrategy):
@@ -266,6 +283,19 @@ class PixelColorCaptureStrategy(CaptureStrategy):
         else:
             count = len(self.captured_points)
             return f"Captured {count} point(s). Click more points or finish capture."
+
+    @classmethod
+    def get_strategy_info(cls) -> StrategyInfo:
+        """Get strategy information.
+
+        Returns:
+            StrategyInfo: Information about this strategy
+        """
+        return StrategyInfo(
+            type_id="pixel_color",
+            display_name="Pixel Color Element",
+            strategy_class=cls
+        )
 
 
 class ImageElementCaptureStrategy(CaptureStrategy):
@@ -440,3 +470,16 @@ class ImageElementCaptureStrategy(CaptureStrategy):
             return "Select template region by dragging"
         else:
             return "Now select detection region (larger area containing the template)"
+
+    @classmethod
+    def get_strategy_info(cls) -> StrategyInfo:
+        """Get strategy information.
+
+        Returns:
+            StrategyInfo: Information about this strategy
+        """
+        return StrategyInfo(
+            type_id="image_element",
+            display_name="Image Element",
+            strategy_class=cls
+        )
