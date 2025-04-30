@@ -7,22 +7,23 @@ This module demonstrates how to:
 3. Define page transitions for automation
 """
 
-import os
 import sys
 from typing import Dict, Optional
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow,
                                QPushButton, QToolBar, QVBoxLayout, QWidget)
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
+from collector.window_manager import WindowManager
 from domain.pixel_element import PixelColorElementEntity
+from picker.data import get_page_config_path
 from picker.overlay.overlay_manager import OverlayManager
 from picker.overlay.overlay_widget import OverlayWidget
 from picker.picker_page_config import PageConfigDialog
-from processor.page_config import ElementTypeRegistry, PageConfigManager
+from processor.page_config import PageConfigManager
 
 logger = get_logger(__name__)
 
@@ -44,17 +45,16 @@ class IntegrationExample(QMainWindow):
     def _init_components(self):
         """Initialize internal components."""
         # Create window capturer
-        self.window_capturer = WindowCapturer()
+        self.window_manager = WindowManager("nikke.exe")
+        self.window_capturer = WindowCapturer(self.window_manager)
         
         # Create overlay widget
-        self.overlay = OverlayWidget()
+        self.overlay = OverlayWidget(self.window_manager)
         
         # Create overlay manager
         self.overlay_manager = OverlayManager(self.overlay, self.window_capturer)
         
-        # Create page config manager
-        config_path = os.path.join(os.path.dirname(__file__), "game_pages.json")
-        self.page_config_manager = PageConfigManager(config_path)
+        self.page_config_manager = PageConfigManager(get_page_config_path())
         
         # Storage for captured elements
         self.captured_elements: Dict[str, any] = {}
@@ -164,7 +164,7 @@ class IntegrationExample(QMainWindow):
         
         # Display overlay
         if not self.overlay.isVisible():
-            self.overlay.showFullScreen()
+            self.overlay.show()
 
     def _start_image_capture(self):
         """Start image element capture process."""
@@ -178,7 +178,7 @@ class IntegrationExample(QMainWindow):
         
         # Display overlay
         if not self.overlay.isVisible():
-            self.overlay.showFullScreen()
+            self.overlay.show()
 
     def _on_capture_completed(self, strategy_type: str, result: any):
         """Handle capture completion.

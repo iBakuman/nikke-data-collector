@@ -23,7 +23,13 @@ from picker.overlay.visual_elements import (PointElement, RectangleElement,
 logger = get_logger(__name__)
 
 
-class CaptureStrategy(QObject, ABC):
+# Fix for metaclass conflict
+class ABCQObjectMeta(type(QObject), type(ABC)):
+    """Metaclass that resolves conflict between QObject and ABC metaclasses."""
+    pass
+
+
+class CaptureStrategy(QObject, ABC, metaclass=ABCQObjectMeta):
     """Base abstract class for all element capture strategies."""
 
     # Signals

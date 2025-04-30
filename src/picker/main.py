@@ -607,7 +607,7 @@ class PickerApp(QObject):
             standard_height=STANDARD_WINDOW_HEIGHT,
             exact_match=True
         )
-        self.nikke_hwnd = self.wm.get_hwnd()
+        self.nikke_hwnd = self.wm.hwnd
         logger.info(f"Found Nikke window. HWND: {self.nikke_hwnd}")
 
     def update_overlay_position(self):

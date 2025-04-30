@@ -33,7 +33,7 @@ class WindowCapturer:
 
     def capture_window(self) -> Optional[CaptureResult]:
         try:
-            rect = self.window_manager.get_rect()
+            rect = self.window_manager.rect
             # Convert to mss format (left, top, width, height)
             screenshot = self.sct.grab({
                 "top": rect.top,

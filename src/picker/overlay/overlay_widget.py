@@ -6,11 +6,15 @@ mouse events and displays visual elements for user interaction.
 """
 from typing import Any, List, Optional
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter
+from PySide6.QtCore import QPoint, QRect, Qt, Signal, QTimer
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QCloseEvent
 from PySide6.QtWidgets import QWidget
 
+from collector.window_manager import WindowManager
+from log.config import get_logger
 from picker.overlay.visual_elements import VisualElement
+
+logger = get_logger(__name__)
 
 
 class OverlayWidget(QWidget):
@@ -22,9 +26,9 @@ class OverlayWidget(QWidget):
     mouse_released = Signal(QMouseEvent)
     mouse_dragged = Signal(QPoint, QPoint)  # Start and current points
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, window_manager: WindowManager, parent: Optional[QWidget] = None):
         """Initialize the overlay widget.
-        
+
         Args:
             parent: Optional parent widget
         """
@@ -36,18 +40,51 @@ class OverlayWidget(QWidget):
             Qt.WindowType.Tool |
             Qt.WindowType.BypassWindowManagerHint
         )
+        self.window_manager = window_manager
         self.setMouseTracking(True)  # Enable mouse tracking
-
         # Visual elements to display
         self._visual_elements: List[VisualElement] = []
 
         # Mouse tracking state
         self._is_dragging = False
         self._drag_start = QPoint()
+        self.timer = QTimer()
+        self.timer.setInterval(250)
+        self.timer.timeout.connect(self.update_overlay_position)
+        self.timer.start()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        # TODO
+        self.timer.disconnect()
+        super().closeEvent(event)
+
+    def show(self) -> None:
+        """Show the overlay widget."""
+        rect = self.window_manager.rect
+        self.setGeometry(rect.left, rect.top, rect.width, rect.height)
+        self.timer.start()
+        super().show()
+
+    def update_overlay_position(self):
+        current_rect = self.window_manager.rect
+        if not current_rect:
+            logger.warning("Could not get current Nikke window rect.")
+            return
+
+        current_pos = QPoint(current_rect.left, current_rect.top)
+        current_size = (current_rect.width, current_rect.height)
+        overlay_pos = self.pos()
+        overlay_size = self.width(), self.height()
+        if current_pos != overlay_pos or current_size != overlay_size:
+            logger.info(f"Nikke window changed. Updating overlay geometry to {current_rect}")
+            self.setGeometry(current_rect.left, current_rect.top, current_rect.width, current_rect.height)
+    def hide(self):
+        self.timer.stop()
+        super().hide()
 
     def add_visual_element(self, element: VisualElement) -> None:
         """Add a visual element to be displayed on the overlay.
-        
+
         Args:
             element: The visual element to add
         """
@@ -61,7 +98,7 @@ class OverlayWidget(QWidget):
 
     def get_visual_elements(self) -> List[VisualElement]:
         """Get all current visual elements.
-        
+
         Returns:
             List of current visual elements
         """
@@ -69,7 +106,7 @@ class OverlayWidget(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Handle mouse press events.
-        
+
         Args:
             event: The mouse press event
         """
@@ -81,7 +118,7 @@ class OverlayWidget(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move events.
-        
+
         Args:
             event: The mouse move event
         """
@@ -95,7 +132,7 @@ class OverlayWidget(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release events.
-        
+
         Args:
             event: The mouse release event
         """
@@ -106,7 +143,7 @@ class OverlayWidget(QWidget):
 
     def paintEvent(self, event: Any) -> None:
         """Paint the overlay with all visual elements.
-        
+
         Args:
             event: The paint event
         """
@@ -122,7 +159,7 @@ class OverlayWidget(QWidget):
 
     def get_geometry(self) -> QRect:
         """Get the current geometry of the overlay.
-        
+
         Returns:
             Current geometry as QRect
         """
