@@ -9,9 +9,9 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout,
-                               QInputDialog, QLabel, QListView, QMainWindow,
-                               QMessageBox, QPushButton, QTreeView, QVBoxLayout)
+from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QInputDialog,
+                               QLabel, QListView, QMainWindow, QMessageBox,
+                               QPushButton, QTreeView, QVBoxLayout, QWidget)
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
@@ -113,8 +113,12 @@ class PageConfigWindow(QMainWindow):
 
     def _init_ui(self):
         """Initialize the dialog UI."""
+        # Create central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
         # Main layout
-        main_layout = QHBoxLayout(self)
+        main_layout = QHBoxLayout()
 
         # Left side - Pages
         page_layout = QVBoxLayout()
@@ -209,6 +213,11 @@ class PageConfigWindow(QMainWindow):
         element_button_layout.addWidget(self.add_element_button)
         element_layout.addLayout(element_button_layout)
 
+        # Add layouts to main layout
+        main_layout.addLayout(page_layout, 1)
+        main_layout.addLayout(detail_layout, 2)
+        main_layout.addLayout(element_layout, 1)
+
         # Dialog buttons
         button_layout = QHBoxLayout()
         self.save_button = QPushButton("Save")
@@ -218,17 +227,17 @@ class PageConfigWindow(QMainWindow):
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.cancel_button)
 
-        # Add layouts to main layout
-        main_layout.addLayout(page_layout, 1)
-        main_layout.addLayout(detail_layout, 2)
-        main_layout.addLayout(element_layout, 1)
-
-        # Add button layout at the bottom
+        # Create outer layout
         outer_layout = QVBoxLayout()
         outer_layout.addLayout(main_layout)
         outer_layout.addLayout(button_layout)
-        self.setLayout(outer_layout)
+        
+        # Set the layout on the central widget
+        central_widget.setLayout(outer_layout)
 
+        # Create status bar
+        self.status_bar = self.statusBar()
+        
         # Disable page detail controls initially
         self._set_detail_controls_enabled(False)
         self.add_element_button.setEnabled(False)
