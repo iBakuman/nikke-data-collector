@@ -37,7 +37,7 @@ from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, WindowNotFoundException
 from config_manager import ConfigManager
 from repository import CharacterDAO
-from ui.main import Ui_MainWindow
+from ui.designer.main import Ui_MainWindow
 from ui.path_selector import PathSelector
 from ui.time_warning_dialog import TimeWarningDialog
 
