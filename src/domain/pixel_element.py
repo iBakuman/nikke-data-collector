@@ -84,9 +84,10 @@ class PixelColorElementEntity(JSONWizard, JSONSerializableMixin):
     updated_at: Optional[datetime] = None
 
     @classmethod
-    def from_point_color(cls, point: Point, color: Color)->'PixelColorElementEntity':
+    def from_point_color(cls, point: Point, color: Color, tolerance: Optional[int] = 10)->'PixelColorElementEntity':
         return cls(
-            points=[PixelColorPointEntity.from_point_and_color(point, color)]
+            points=[PixelColorPointEntity.from_point_and_color(point, color)],
+            tolerance=tolerance,
         )
 
 

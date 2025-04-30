@@ -48,7 +48,7 @@ class PointElement(VisualElement):
         """
         self.x = x
         self.y = y
-        self.color = color if isinstance(color, QColor) else QColor(*color)
+        self.color = color if isinstance(color, QColor) else QColor(color[0], color[1], color[2])
         self.radius = radius
         self.border_color = border_color
         self.border_width = border_width
