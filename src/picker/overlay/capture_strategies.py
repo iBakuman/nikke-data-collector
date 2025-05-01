@@ -8,11 +8,12 @@ a specific type of element capture.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import (Any, Dict, List, Optional, Type, TypeVar)
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from PySide6.QtCore import QObject, QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QColor, QImage, QMouseEvent
-from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtGui import QColor, QImage, QMouseEvent, QPixmap
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QVBoxLayout,
+                               QWidget)
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
@@ -217,6 +218,97 @@ class CaptureStrategy(ABC, QObject):
         return False
 
 
+class ControlPanel(QWidget):
+    """Base class for strategy control panels.
+
+    This provides common UI elements and layout for all strategy control panels.
+    """
+
+    def __init__(self, strategy: 'CaptureStrategy', parent: Optional[QWidget] = None):
+        """Initialize the control panel.
+
+        Args:
+            strategy: The strategy this panel controls
+            parent: Optional parent widget
+        """
+        super().__init__(parent)
+        self.strategy = strategy
+
+        # Set up layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout.setSpacing(10)
+
+        # Add title
+        info = strategy.get_strategy_info()
+        title_label = QLabel(f"<h3>{info.display_name}</h3>")
+        self.main_layout.addWidget(title_label)
+
+        # Add description
+        desc_label = QLabel(info.description)
+        desc_label.setWordWrap(True)
+        self.main_layout.addWidget(desc_label)
+
+        # Content area (to be filled by subclasses)
+        self.content_layout = QVBoxLayout()
+        self.main_layout.addLayout(self.content_layout)
+
+        # Add spacer
+        self.main_layout.addStretch(1)
+
+        # Buttons area
+        self.buttons_layout = QHBoxLayout()
+        self.main_layout.addLayout(self.buttons_layout)
+
+        # Cancel button
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.strategy.cancel_capture)
+
+        # Complete button
+        self.complete_button = QPushButton("Complete")
+        self.complete_button.clicked.connect(self.strategy.complete_capture)
+
+        # Add buttons to layout
+        self.buttons_layout.addWidget(self.cancel_button)
+        self.buttons_layout.addStretch(1)
+        self.buttons_layout.addWidget(self.complete_button)
+
+        # Initialize UI state
+        self.update_ui_state()
+
+        # Connect to strategy signals
+        self.strategy.state_changed.connect(self.update_ui_state)
+
+    def update_ui_state(self, state: Optional[CaptureState] = None) -> None:
+        """Update UI based on current strategy state.
+
+        Args:
+            state: Optional state that triggered the update
+        """
+        if state is None:
+            state = self.strategy.state
+
+        # Complete button is only enabled if capture can be completed
+        self.complete_button.setEnabled(self.strategy.can_complete())
+
+    def keyPressEvent(self, event):
+        """Handle key press events.
+
+        Args:
+            event: Key event
+        """
+        # Escape cancels capture
+        if event.key() == Qt.Key.Key_Escape:
+            self.strategy.cancel_capture()
+
+        # Enter completes capture if it can be completed
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self.strategy.can_complete():
+                self.strategy.complete_capture()
+
+        super().keyPressEvent(event)
+
+
 class PixelColorCaptureStrategy(CaptureStrategy):
     """Strategy for capturing pixel colors.
 
@@ -240,6 +332,8 @@ class PixelColorCaptureStrategy(CaptureStrategy):
         super().__init__(overlay, window_capturer)
         self.captured_points: List[PixelColorElementEntity] = []
         self.control_panel: Optional['PixelColorControlPanel'] = None
+        # Track visual elements for easier removal
+        self.point_elements: List[PointElement] = []
 
     def _create_control_panel(self) -> QWidget:
         """Create the control panel for pixel color capture."""
@@ -250,6 +344,7 @@ class PixelColorCaptureStrategy(CaptureStrategy):
         """Start the pixel color capture process."""
         # Initialize the list of captured points
         self.captured_points = []
+        self.point_elements = []
         self.result_data = self.captured_points
 
         # Connect to overlay signals
@@ -309,9 +404,9 @@ class PixelColorCaptureStrategy(CaptureStrategy):
             self.captured_points.append(pixel_element)
 
             # Add visual feedback to overlay
-            self.overlay.add_visual_element(
-                PointElement(x, y, QColor(r, g, b))
-            )
+            point_element = PointElement(x, y, QColor(r, g, b))
+            self.overlay.add_visual_element(point_element)
+            self.point_elements.append(point_element)
 
             # Update the control panel
             if self.control_panel:
@@ -333,23 +428,10 @@ class PixelColorCaptureStrategy(CaptureStrategy):
             # Remove from the list
             removed_point = self.captured_points.pop(index)
 
-            # Remove visual element from overlay
-            current_elements = self.overlay.get_visual_elements()
-
-            # Find and remove the corresponding PointElement
-            # (Not efficient for many points, but works for typical usage)
-            for i, element in enumerate(current_elements):
-                if (isinstance(element, PointElement) and
-                        element.x == removed_point.x and
-                        element.y == removed_point.y):
-                    # Create a new list without this element
-                    new_elements = current_elements[:i] + current_elements[i + 1:]
-
-                    # Update the overlay
-                    self.overlay.clear_visual_elements()
-                    for new_element in new_elements:
-                        self.overlay.add_visual_element(new_element)
-                    break
+            # Remove the corresponding visual element
+            if 0 <= index < len(self.point_elements):
+                point_element = self.point_elements.pop(index)
+                self.overlay.remove_visual_element(point_element)
 
             # Update the control panel
             if self.control_panel:
@@ -447,8 +529,14 @@ class PixelColorControlPanel(ControlPanel):
         html = "<h4>Captured Points:</h4><ol>"
 
         for point in points:
-            color = point.color
-            html += f'<li>({point.x}, {point.y}) - RGB({color.r}, {color.g}, {color.b})</li>'
+            # Access point properties safely
+            point_x = point.point.x if hasattr(point, 'point') else 0
+            point_y = point.point.y if hasattr(point, 'point') else 0
+            color_r = point.color.r if hasattr(point, 'color') else 0
+            color_g = point.color.g if hasattr(point, 'color') else 0
+            color_b = point.color.b if hasattr(point, 'color') else 0
+
+            html += f'<li>({point_x}, {point_y}) - RGB({color_r}, {color_g}, {color_b})</li>'
 
         html += "</ol>"
         self.points_list.setText(html)
@@ -584,7 +672,10 @@ class ImageElementCaptureStrategy(CaptureStrategy):
         if width < 10 or height < 10:
             # Too small, ignore
             if self.rectangle_element:
-                self.overlay.remove_visual_element(self.rectangle_element)
+                try:
+                    self.overlay.remove_visual_element(self.rectangle_element)
+                except Exception as e:
+                    logger.warning(f"Failed to remove rectangle element: {e}")
                 self.rectangle_element = None
             return
 
@@ -618,7 +709,10 @@ class ImageElementCaptureStrategy(CaptureStrategy):
         # Create or update rectangle element
         if self.rectangle_element:
             # Remove existing rectangle
-            self.overlay.remove_visual_element(self.rectangle_element)
+            try:
+                self.overlay.remove_visual_element(self.rectangle_element)
+            except Exception as e:
+                logger.warning(f"Failed to remove rectangle element: {e}")
 
         # Create new rectangle with semi-transparent fill
         self.rectangle_element = RectangleElement(
@@ -669,7 +763,10 @@ class ImageElementCaptureStrategy(CaptureStrategy):
         """Reset the capture and start over."""
         # Clear current selection
         if self.rectangle_element:
-            self.overlay.remove_visual_element(self.rectangle_element)
+            try:
+                self.overlay.remove_visual_element(self.rectangle_element)
+            except Exception as e:
+                logger.warning(f"Failed to remove rectangle element: {e}")
             self.rectangle_element = None
 
         # Reset state
@@ -770,8 +867,6 @@ class ImageElementControlPanel(ControlPanel):
 
     def update_image_preview(self) -> None:
         """Update the image preview with the captured image."""
-        from PySide6.QtGui import QPixmap
-
         if not self.strategy.captured_image:
             self.preview_label.setText("No image captured yet")
             return
@@ -792,94 +887,3 @@ class ImageElementControlPanel(ControlPanel):
 
         # Enable/disable reset button based on whether there's a captured image
         self.reset_button.setEnabled(self.strategy.captured_image is not None)
-
-
-class ControlPanel(QWidget):
-    """Base class for strategy control panels.
-
-    This provides common UI elements and layout for all strategy control panels.
-    """
-
-    def __init__(self, strategy: 'CaptureStrategy', parent: Optional[QWidget] = None):
-        """Initialize the control panel.
-
-        Args:
-            strategy: The strategy this panel controls
-            parent: Optional parent widget
-        """
-        super().__init__(parent)
-        self.strategy = strategy
-
-        # Set up layout
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(10, 10, 10, 10)
-        self.main_layout.setSpacing(10)
-
-        # Add title
-        info = strategy.get_strategy_info()
-        title_label = QLabel(f"<h3>{info.display_name}</h3>")
-        self.main_layout.addWidget(title_label)
-
-        # Add description
-        desc_label = QLabel(info.description)
-        desc_label.setWordWrap(True)
-        self.main_layout.addWidget(desc_label)
-
-        # Content area (to be filled by subclasses)
-        self.content_layout = QVBoxLayout()
-        self.main_layout.addLayout(self.content_layout)
-
-        # Add spacer
-        self.main_layout.addStretch(1)
-
-        # Buttons area
-        self.buttons_layout = QHBoxLayout()
-        self.main_layout.addLayout(self.buttons_layout)
-
-        # Cancel button
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.strategy.cancel_capture)
-
-        # Complete button
-        self.complete_button = QPushButton("Complete")
-        self.complete_button.clicked.connect(self.strategy.complete_capture)
-
-        # Add buttons to layout
-        self.buttons_layout.addWidget(self.cancel_button)
-        self.buttons_layout.addStretch(1)
-        self.buttons_layout.addWidget(self.complete_button)
-
-        # Initialize UI state
-        self.update_ui_state()
-
-        # Connect to strategy signals
-        self.strategy.state_changed.connect(self.update_ui_state)
-
-    def update_ui_state(self, state: Optional[CaptureState] = None) -> None:
-        """Update UI based on current strategy state.
-
-        Args:
-            state: Optional state that triggered the update
-        """
-        if state is None:
-            state = self.strategy.state
-
-        # Complete button is only enabled if capture can be completed
-        self.complete_button.setEnabled(self.strategy.can_complete())
-
-    def keyPressEvent(self, event):
-        """Handle key press events.
-
-        Args:
-            event: Key event
-        """
-        # Escape cancels capture
-        if event.key() == Qt.Key.Key_Escape:
-            self.strategy.cancel_capture()
-
-        # Enter completes capture if it can be completed
-        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            if self.strategy.can_complete():
-                self.strategy.complete_capture()
-
-        super().keyPressEvent(event)
