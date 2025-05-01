@@ -104,6 +104,8 @@ class MainWindow(QMainWindow):
         # Track current element creation
         self.current_element_name: Optional[str] = None
         self.current_page_id: Optional[str] = None
+        # Track unsaved changes
+        self.has_unsaved_changes = False
 
         # Initialize UI
         self._init_ui()
@@ -289,6 +291,7 @@ class MainWindow(QMainWindow):
         # Add page to config
         try:
             page_id = self.config_manager.add_page(page_name)
+            self.has_unsaved_changes = True
 
             # Add to tree view
             item = QStandardItem(page_name)
@@ -428,6 +431,7 @@ class MainWindow(QMainWindow):
                 element_id = self.config_manager.add_element(
                     self.current_page_id, element
                 )
+                self.has_unsaved_changes = True
 
                 # Update UI
                 self._load_page_elements(self.current_page_id)
@@ -467,6 +471,7 @@ class MainWindow(QMainWindow):
         # Add to page
         try:
             self.config_manager.add_page_identifier(page_id, element_id)
+            self.has_unsaved_changes = True
 
             # Refresh page details
             self._load_page_details(page_id)
@@ -496,6 +501,7 @@ class MainWindow(QMainWindow):
         # Remove from page
         page = self.config_manager.config.pages[page_id]
         page.identifier_element_ids.remove(element_id)
+        self.has_unsaved_changes = True
 
         # Refresh page details
         self._load_page_details(page_id)
@@ -519,6 +525,7 @@ class MainWindow(QMainWindow):
         # Add to page
         try:
             self.config_manager.add_interactive_element(page_id, element_id)
+            self.has_unsaved_changes = True
 
             # Refresh page details
             self._load_page_details(page_id)
@@ -548,6 +555,7 @@ class MainWindow(QMainWindow):
         # Remove from page
         page = self.config_manager.config.pages[page_id]
         page.interactive_element_ids.remove(element_id)
+        self.has_unsaved_changes = True
 
         # Refresh page details
         self._load_page_details(page_id)
@@ -579,6 +587,7 @@ class MainWindow(QMainWindow):
                 self.config_manager.add_transition(
                     page_id, element_id, target_page_id, confirmation_ids
                 )
+                self.has_unsaved_changes = True
 
                 # Refresh page details
                 self._load_page_details(page_id)
@@ -618,6 +627,7 @@ class MainWindow(QMainWindow):
         for i, transition in enumerate(page.transitions):
             if transition.element_id == element_id and transition.target_page == target_page_id:
                 del page.transitions[i]
+                self.has_unsaved_changes = True
                 break
 
         # Refresh page details
@@ -630,6 +640,7 @@ class MainWindow(QMainWindow):
         """Save the configuration."""
         try:
             self.config_manager.save_config()
+            self.has_unsaved_changes = False
             self.status_bar.showMessage("Configuration saved successfully", 3000)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
@@ -641,25 +652,27 @@ class MainWindow(QMainWindow):
             event: Close event
         """
         # Ask for confirmation if there are unsaved changes
-        # TODO: Track changes to detect unsaved modifications
+        if self.has_unsaved_changes:
+            reply = QMessageBox.question(
+                self, "Save Changes?",
+                "Do you want to save changes before closing?",
+                QMessageBox.StandardButton.Save |
+                QMessageBox.StandardButton.Discard |
+                QMessageBox.StandardButton.Cancel
+            )
 
-        reply = QMessageBox.question(
-            self, "Save Changes?",
-            "Do you want to save changes before closing?",
-            QMessageBox.StandardButton.Save |
-            QMessageBox.StandardButton.Discard |
-            QMessageBox.StandardButton.Cancel
-        )
-
-        if reply == QMessageBox.StandardButton.Save:
-            try:
-                self.config_manager.save_config()
-                event.accept()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+            if reply == QMessageBox.StandardButton.Save:
+                try:
+                    self.config_manager.save_config()
+                    self.has_unsaved_changes = False
+                    event.accept()
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+                    event.ignore()
+            elif reply == QMessageBox.StandardButton.Cancel:
                 event.ignore()
-        elif reply == QMessageBox.StandardButton.Cancel:
-            event.ignore()
+            else:
+                event.accept()
         else:
             event.accept()
 
