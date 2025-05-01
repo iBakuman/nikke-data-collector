@@ -281,18 +281,14 @@ class MainWindow(QMainWindow):
 
     def _add_page(self):
         """Add a new page to the configuration."""
-        # Prompt for page ID and name
-        page_id, ok = QInputDialog.getText(self, "Add Page", "Page ID:")
-        if not ok or not page_id:
-            return
-
+        # Prompt for page name only
         page_name, ok = QInputDialog.getText(self, "Add Page", "Page Name:")
         if not ok or not page_name:
             return
 
         # Add page to config
         try:
-            self.config_manager.add_page(page_id, page_name)
+            page_id = self.config_manager.add_page(page_name)
 
             # Add to tree view
             item = QStandardItem(page_name)

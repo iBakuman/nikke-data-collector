@@ -12,9 +12,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, Union
 
+from dataclass_wizard import JSONWizard
 from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QMessageBox,
                                QPushButton, QVBoxLayout)
-from dataclass_wizard import JSONWizard
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
@@ -408,13 +408,12 @@ class PageConfigManager:
         except Exception as e:
             raise ValueError(f"Failed to save configuration: {e}")
 
-    def add_element(self, page_id: str, element: UIElement, element_id: Optional[str] = None) -> str:
+    def add_element(self, page_id: str, element: UIElement) -> str:
         """Add an element to a page.
 
         Args:
             page_id: ID of the page to add the element to
             element: The UI element to add
-            element_id: Optional custom ID for the element
 
         Returns:
             The ID of the added element
@@ -426,13 +425,8 @@ class PageConfigManager:
         # Get the page
         page = self.config.pages[page_id]
 
-        # Generate ID if not provided
-        if not element_id:
-            element_id = f"{element.name.lower().replace(' ', '_')}_{len(page.elements)}"
-
-        # Check if element with this ID already exists in the page
-        if element_id in page.elements:
-            raise ValueError(f"Element with ID {element_id} already exists in page {page_id}")
+        # Generate a unique numeric element ID
+        element_id = self._generate_element_id(page_id)
 
         # Determine element type
         if isinstance(element, ImageElement):
@@ -458,20 +452,76 @@ class PageConfigManager:
 
         return element_id
 
-    def add_page(self, page_id: str, page_name: str) -> None:
+    def _generate_element_id(self, page_id: str) -> str:
+        """Generate a unique numeric element ID for a page.
+
+        Args:
+            page_id: ID of the page
+
+        Returns:
+            A unique element ID
+        """
+        # Get the page
+        page = self.config.pages[page_id]
+
+        # If no elements exist, start with 1
+        if not page.elements:
+            return "1"
+
+        # Find the highest existing numeric ID
+        numeric_ids = []
+        for element_id in page.elements.keys():
+            if element_id.isdigit():
+                numeric_ids.append(int(element_id))
+
+        # If no numeric IDs exist, start with 1
+        if not numeric_ids:
+            return "1"
+
+        # Return the next available ID
+        return str(max(numeric_ids) + 1)
+
+    def add_page(self, page_name: str) -> str:
         """Add a page to the configuration.
 
         Args:
-            page_id: Unique identifier for the page
             page_name: Human-readable name for the page
+
+        Returns:
+            The ID of the added page
         """
-        if page_id in self.config.pages:
-            raise ValueError(f"Page with ID {page_id} already exists")
+        # Generate a numeric ID
+        page_id = self._generate_page_id()
 
         self.config.pages[page_id] = PageConfig(
             id=page_id,
             name=page_name
         )
+
+        return page_id
+
+    def _generate_page_id(self) -> str:
+        """Generate a unique numeric page ID.
+
+        Returns:
+            A unique page ID
+        """
+        # If no pages exist, start with 1
+        if not self.config.pages:
+            return "1"
+
+        # Find the highest existing numeric ID
+        numeric_ids = []
+        for page_id in self.config.pages.keys():
+            if page_id.isdigit():
+                numeric_ids.append(int(page_id))
+
+        # If no numeric IDs exist, start with 1
+        if not numeric_ids:
+            return "1"
+
+        # Return the next available ID
+        return str(max(numeric_ids) + 1)
 
     def add_page_identifier(self, page_id: str, element_id: str) -> None:
         """Add an identifier element to a page.

@@ -160,7 +160,7 @@ class OverlayWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Create semi-transparent overlay
-        painter.fillRect(self.rect(), QColor(0, 0, 255))  # Almost transparent
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 1))  # Almost transparent
 
         # Draw all visual elements
         for element in self._visual_elements:
