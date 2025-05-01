@@ -50,11 +50,10 @@ class CharacterImporter(DataImporter[Character]):
             # Add the image
             image_path = os.path.join(directory_path, filename)
             success = self.character_dao.add_character_image(char_id, image_path)
+            if not success:
+                logger.error(f"Failed to add image {image_path} to character {char_id}")
+        return None
 
-            if success:
-                count += 1
-        logger.info(f"Successfully imported {count} images into the database")
-        return count
 
     def import_from_file(self, file_path: str) -> List[Character]:
         """Import character data from a file.

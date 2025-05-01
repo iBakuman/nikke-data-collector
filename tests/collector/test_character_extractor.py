@@ -24,14 +24,15 @@ character_maps: list[Dict[int, str]] = [
         # 2: "红莲",
         # 3: "桑迪",
         # 4: "索达-闪亮兔女郎",
-        5: "娜嘉",
+        # 5: "娜嘉",
         # 6: "布兰儿",
+        6: "小美人鱼",
         # 7: "饼干",
         # 8: "D-杀手妻子",
         # 9: "蒂亚",
         # 10: "桃乐丝",
         # 11: "普丽瓦蒂",
-        12: "明日香",
+        # 12: "明日香",
     },
     {
         # 1: "麦斯威尔",
@@ -41,8 +42,9 @@ character_maps: list[Dict[int, str]] = [
         # 5: "诺亚尔",
         # 6: "白雪公主",
         # 7: "诺雅",
+        7: "米哈拉-羁绊锁链",
         # 8: "梅登-冰玫瑰",
-        9: "真理",
+        # 9: "真理",
         # 10: "诺依斯",
         # 11: "长发公主",
         # 12: "布蕾德"
@@ -201,13 +203,13 @@ def test_character_extractor():
         height_width_ratio=STANDARD_CHARACTER_HEIGHT / STANDARD_CHARACTER_WIDTH
     )
 
-    image_path = "testdata/samples/m-1.png"
+    image_path = "testdata/samples/c.png"
     output_dir = "testdata/samples/extracted"
 
     extracted_paths = extract_characters(
         image_path,
         output_dir,
         params,
-        character_maps[12]
+        character_maps[2]
     )
     print(f"Extracted {len(extracted_paths)} character images")
