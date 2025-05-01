@@ -7,16 +7,19 @@ overlay widget and capture strategies for different element types.
 from typing import Any, Dict, List, Optional, Type
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QWidget
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
-from picker.overlay.capture_strategies import (CaptureStrategy,
+from picker.overlay.capture_strategies import (CaptureState, CaptureStrategy,
                                                ImageElementCaptureStrategy,
                                                PixelColorCaptureStrategy,
                                                StrategyInfo)
 from picker.overlay.overlay_widget import OverlayWidget
+from picker.overlay.visual_elements import VisualElement
 
 logger = get_logger(__name__)
+
 
 class OverlayManager(QObject):
     """Manager for coordinating overlay widget and capture strategies."""
@@ -37,18 +40,23 @@ class OverlayManager(QObject):
         self.overlay = overlay
         self.window_capturer = window_capturer
         self.current_strategy: Optional[CaptureStrategy] = None
-        self.original_state: Optional[Dict[str, Any]] = None
+        self.current_strategy_type_id: Optional[str] = None
+        self.control_panel: Optional[QWidget] = None
         
         # Strategy registry 
-        self.strategy_infos: Dict[str, StrategyInfo] = {}
+        self.strategy_registry: Dict[str, Type[CaptureStrategy]] = {}
+        
+        # Register built-in strategies
         self._register_builtin_strategies()
     
-    def _register_builtin_strategies(self):
-        """Register built-in capture strategies."""
+    def _register_builtin_strategies(self) -> None:
+        """Register the built-in capture strategies."""
         self.register_strategy(PixelColorCaptureStrategy)
         self.register_strategy(ImageElementCaptureStrategy)
+        
+        logger.info(f"Registered {len(self.strategy_registry)} built-in capture strategies")
     
-    def register_strategy(self, strategy_class: Type[CaptureStrategy]):
+    def register_strategy(self, strategy_class: Type[CaptureStrategy]) -> None:
         """Register a capture strategy.
         
         Args:
@@ -58,10 +66,11 @@ class OverlayManager(QObject):
             ValueError: If strategy type already exists
         """
         strategy_info = strategy_class.get_strategy_info()
-        if strategy_info.type_id in self.strategy_infos:
+        
+        if strategy_info.type_id in self.strategy_registry:
             raise ValueError(f"Strategy type '{strategy_info.type_id}' already registered")
         
-        self.strategy_infos[strategy_info.type_id] = strategy_info
+        self.strategy_registry[strategy_info.type_id] = strategy_class
         logger.debug(f"Registered strategy: {strategy_info.display_name} ({strategy_info.type_id})")
     
     def get_strategy_infos(self) -> List[StrategyInfo]:
@@ -70,65 +79,151 @@ class OverlayManager(QObject):
         Returns:
             List of strategy information objects
         """
-        return list(self.strategy_infos.values())
+        return [cls.get_strategy_info() for cls in self.strategy_registry.values()]
     
-    def start_capture(self, strategy_type_id: str) -> Optional[Any]:
+    def start_capture(self, strategy_type_id: str) -> None:
         """Start capture process with specified strategy type.
         
         Args:
             strategy_type_id: Type ID of capture strategy
             
-        Returns:
-            Capture result data or None if cancelled
-            
         Raises:
             ValueError: If strategy type is unknown
         """
         # Check if strategy type is valid
-        if strategy_type_id not in self.strategy_infos:
+        if strategy_type_id not in self.strategy_registry:
             raise ValueError(f"Unknown capture strategy type: {strategy_type_id}")
         
-        # Get strategy info
-        strategy_info = self.strategy_infos[strategy_type_id]
+        # If already capturing, cancel current capture
+        if self.current_strategy:
+            self.current_strategy.cancel_capture()
+            self.current_strategy = None
+            self.current_strategy_type_id = None
+            
+            if self.control_panel:
+                self.control_panel.close()
+                self.control_panel = None
         
-        # Save original overlay state
-        self._save_original_state()
+        # Get strategy class
+        strategy_class = self.strategy_registry[strategy_type_id]
         
         # Create strategy instance
-        self.current_strategy = strategy_info.strategy_class(self.overlay, self.window_capturer)
+        self.current_strategy = strategy_class(self.overlay, self.window_capturer)
+        self.current_strategy_type_id = strategy_type_id
         
+        # Connect to strategy signals
+        self.current_strategy.capture_completed.connect(self._handle_capture_completed)
+        self.current_strategy.capture_cancelled.connect(self._handle_capture_cancelled)
+        
+        # Emit capture started signal
         self.capture_started.emit(strategy_type_id)
-        self.current_strategy.start_capture()
-
-        capture_result = None
-        if  self.current_strategy.result_data:
-            capture_result = self.current_strategy.result_data
-            self.capture_completed.emit(strategy_type_id, capture_result)
-        else:
-            self.capture_cancelled.emit()
         
-        # Restore original state
-        self._restore_original_state()
+        # Start capture and get control panel
+        self.control_panel = self.current_strategy.start_capture()
         
-        # Clear current strategy
-        self.current_strategy = None
-        
-        return capture_result
+        # Show control panel
+        if self.control_panel:
+            self.control_panel.show()
     
-    def _save_original_state(self):
-        """Save the original state of the overlay."""
-        self.original_state = {
-            "visual_elements": self.overlay.get_visual_elements()
-        }
-    
-    def _restore_original_state(self):
-        """Restore the overlay to its original state."""
-        if not self.original_state:
-            return
+    def _handle_capture_completed(self, result: Any) -> None:
+        """Handle completion of the capture process.
+        
+        Args:
+            result: Capture result data
+        """
+        if self.current_strategy_type_id:
+            self.capture_completed.emit(self.current_strategy_type_id, result)
             
-        # Clear current visual elements
-        self.overlay.clear_visual_elements()
+        # Clean up
+        self._cleanup_current_capture()
+    
+    def _handle_capture_cancelled(self) -> None:
+        """Handle cancellation of the capture process."""
+        self.capture_cancelled.emit()
         
-        # Restore original visual elements
-        for element in self.original_state["visual_elements"]:
-            self.overlay.add_visual_element(element) 
+        # Clean up
+        self._cleanup_current_capture()
+    
+    def _cleanup_current_capture(self) -> None:
+        """Clean up resources from current capture."""
+        # Disconnect signals
+        if self.current_strategy:
+            self.current_strategy.capture_completed.disconnect(self._handle_capture_completed)
+            self.current_strategy.capture_cancelled.disconnect(self._handle_capture_cancelled)
+            
+        # Close control panel
+        if self.control_panel:
+            self.control_panel.close()
+            self.control_panel = None
+            
+        # Clear strategy
+        self.current_strategy = None
+        self.current_strategy_type_id = None
+    
+    def cancel_current_capture(self) -> None:
+        """Cancel the current capture process if active."""
+        if self.current_strategy:
+            self.current_strategy.cancel_capture()
+    
+    def load_elements(self, config_list: List[Dict[str, Any]]) -> List[VisualElement]:
+        """Load visual elements from configuration.
+        
+        Args:
+            config_list: List of element configurations
+            
+        Returns:
+            List of created visual elements
+        """
+        elements = []
+        
+        for config in config_list:
+            # Get element type
+            type_id = config.get("type")
+            if not type_id:
+                logger.warning(f"Skipping element config with missing type: {config}")
+                continue
+                
+            # Find strategy that handles this type
+            if type_id not in self.strategy_registry:
+                logger.warning(f"No strategy registered for element type: {type_id}")
+                continue
+                
+            # Create element
+            strategy_class = self.strategy_registry[type_id]
+            try:
+                element = strategy_class.create_visual_element(config)
+                elements.append(element)
+            except Exception as e:
+                logger.error(f"Error creating element of type {type_id}: {e}")
+        
+        return elements
+    
+    def get_configs_from_elements(self, elements: List[VisualElement]) -> List[Dict[str, Any]]:
+        """Get configurations from visual elements.
+        
+        Args:
+            elements: List of visual elements
+            
+        Returns:
+            List of element configurations
+        """
+        configs = []
+        
+        for element in elements:
+            # Find strategy that handles this element
+            handled = False
+            
+            for strategy_class in self.strategy_registry.values():
+                if strategy_class.handles_element_type(element):
+                    try:
+                        config = strategy_class.get_config_from_element(element)
+                        configs.append(config)
+                        handled = True
+                        break
+                    except Exception as e:
+                        logger.error(f"Error getting config from element: {e}")
+            
+            if not handled:
+                logger.warning(f"No strategy handles element type: {type(element).__name__}")
+        
+        return configs 

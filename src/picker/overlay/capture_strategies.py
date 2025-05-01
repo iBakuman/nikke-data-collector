@@ -5,213 +5,297 @@ This module provides strategies for capturing different types of elements
 using the overlay system. Each strategy defines the interaction flow for
 a specific type of element capture.
 """
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional, Type
+from enum import Enum, auto
+from typing import (Any, Dict, List, Optional, Type, TypeVar)
 
-from PySide6.QtCore import QObject, QPoint, QRect, Signal
-from PySide6.QtGui import QColor, QMouseEvent
+from PySide6.QtCore import QObject, QPoint, QRect, Qt, Signal
+from PySide6.QtGui import QColor, QImage, QMouseEvent
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget)
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
 from domain.color import Color
 from domain.pixel_element import PixelColorElementEntity
-from domain.regions import Point, Region
+from domain.regions import Point
 from picker.overlay.overlay_widget import OverlayWidget
 from picker.overlay.visual_elements import (PointElement, RectangleElement,
-                                            TextElement)
+                                            VisualElement)
 
 logger = get_logger(__name__)
 
+
+class CaptureState(Enum):
+    """States for the capture process"""
+    INITIALIZING = auto()
+    IN_PROGRESS = auto()
+    READY = auto()
+    COMPLETED = auto()
+    CANCELLED = auto()
 
 
 @dataclass
 class StrategyInfo:
     """Information about a capture strategy."""
-    type_id: str        # Unique identifier
-    display_name: str   # User-friendly display name
+    type_id: str  # Unique identifier
+    display_name: str  # User-friendly display name
+    description: str  # Description of what this strategy captures
     strategy_class: Type['CaptureStrategy']  # Strategy class
 
 
-class CaptureStrategy(QObject):
-    """Base abstract class for all element capture strategies."""
+# Type variable for result data
+T = TypeVar('T')
 
-    # Signals
-    capture_started = Signal()
-    capture_step_completed = Signal(int, object)  # Step index and step data
-    capture_completed = Signal(object)  # Final result
+
+class CaptureStrategy(ABC, QObject):
+    """Base abstract class for all element capture strategies.
+
+    This class defines the core interface that all capture strategies must implement.
+    Each strategy is responsible for:
+    1. Creating its own control panel UI
+    2. Managing the capture process
+    3. Creating visual elements for the overlay
+    4. Converting between visual elements and configuration
+    """
+
+    # Signals that strategies can emit
+    state_changed = Signal(CaptureState)
+    capture_completed = Signal(object)  # Result data
     capture_cancelled = Signal()
+
+    @classmethod
+    @abstractmethod
+    def get_strategy_info(cls) -> StrategyInfo:
+        """Get information about this strategy.
+
+        Returns:
+            StrategyInfo object containing metadata about this strategy
+        """
+        pass
 
     def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
         """Initialize the capture strategy.
 
         Args:
-            overlay: The overlay widget used for capturing
+            overlay: The overlay widget to display visual feedback
             window_capturer: The window capturer for screenshots
         """
         super().__init__()
         self.overlay = overlay
         self.window_capturer = window_capturer
-        self.current_step = 0
+        self.state = CaptureState.INITIALIZING
         self.result_data: Any = None
-        self.is_capturing = False
+
+        # Original visual elements to restore when complete
+        self._original_visual_elements: List[VisualElement] = []
+
+    def start_capture(self) -> QWidget:
+        """Start the capture process.
+
+        This method should:
+        1. Save original overlay state
+        2. Set up initial visual elements
+        3. Create and return a control panel widget
+
+        Returns:
+            A widget containing controls for this capture strategy
+        """
+        # Save original overlay state
+        self._original_visual_elements = self.overlay.get_visual_elements().copy()
+
+        # Clear overlay for our elements
+        self.overlay.clear_visual_elements()
+
+        # Set state to in progress
+        self._set_state(CaptureState.IN_PROGRESS)
+
+        # Create control panel (implemented by subclasses)
+        control_panel = self._create_control_panel()
+
+        return control_panel
+
+    def cancel_capture(self) -> None:
+        """Cancel the capture process."""
+        self._cleanup()
+        self._set_state(CaptureState.CANCELLED)
+        self.capture_cancelled.emit()
+
+    def complete_capture(self) -> None:
+        """Complete the capture process with current result data."""
+        if self.can_complete():
+            self._cleanup()
+            self._set_state(CaptureState.COMPLETED)
+            self.capture_completed.emit(self.result_data)
+        else:
+            # Subclasses should prevent this by disabling the complete button
+            logger.warning("Attempted to complete capture without valid data")
+
+    def _cleanup(self) -> None:
+        """Clean up resources used during capture."""
+        # Remove our visual elements
+        self.overlay.clear_visual_elements()
+
+        # Restore original elements
+        for element in self._original_visual_elements:
+            self.overlay.add_visual_element(element)
+
+        # Disconnect any connected signals
+        self._disconnect_signals()
+
+    def _set_state(self, state: CaptureState) -> None:
+        """Update the current state and emit signal.
+
+        Args:
+            state: New state to set
+        """
+        self.state = state
+        self.state_changed.emit(state)
 
     @abstractmethod
-    def start_capture(self) -> None:
-        """Start the element capture process."""
-        self.current_step = 0
-        self.result_data = None
-        self._connect_signals()
-        self._initialize_visuals()
-        self.capture_started.emit()
-        self.overlay.show()
-        self.is_capturing = True
+    def _create_control_panel(self) -> QWidget:
+        """Create a control panel widget for this strategy.
+
+        Returns:
+            A widget containing controls for the capture process
+        """
+        pass
+
+    @abstractmethod
+    def can_complete(self) -> bool:
+        """Check if the capture can be completed with current data.
+
+        Returns:
+            True if capture can be completed, False otherwise
+        """
+        pass
 
     def _connect_signals(self) -> None:
-        """Connect to overlay signals."""
-        self.overlay.mouse_pressed.connect(self.handle_press)
-        self.overlay.mouse_moved.connect(self.handle_move)
-        self.overlay.mouse_released.connect(self.handle_release)
-        self.overlay.mouse_dragged.connect(self.handle_drag)
+        """Connect to overlay signals needed by this strategy."""
+        pass
 
     def _disconnect_signals(self) -> None:
         """Disconnect from overlay signals."""
-        self.overlay.mouse_pressed.disconnect(self.handle_press)
-        self.overlay.mouse_moved.disconnect(self.handle_move)
-        self.overlay.mouse_released.disconnect(self.handle_release)
-        self.overlay.mouse_dragged.disconnect(self.handle_drag)
-
-    @abstractmethod
-    def _initialize_visuals(self) -> None:
-        """Initialize visual elements for the current step."""
-        self.overlay.clear_visual_elements()
-
-        # Add instructions based on current step
-        instructions = self.get_instructions()
-        self.overlay.add_visual_element(TextElement(instructions, 10, 10))
-
-    @abstractmethod
-    def handle_press(self, event: QMouseEvent) -> None:
-        """Handle mouse press events.
-
-        Args:
-            event: The mouse press event
-        """
         pass
-
-    @abstractmethod
-    def handle_move(self, event: QMouseEvent) -> None:
-        """Handle mouse move events.
-
-        Args:
-            event: The mouse move event
-        """
-        pass
-
-    @abstractmethod
-    def handle_release(self, event: QMouseEvent) -> None:
-        """Handle mouse release events.
-
-        Args:
-            event: The mouse release event
-        """
-        pass
-
-    @abstractmethod
-    def handle_drag(self, start_point: QPoint, current_point: QPoint) -> None:
-        """Handle mouse drag events.
-
-        Args:
-            start_point: Drag start point
-            current_point: Current drag point
-        """
-        pass
-
-    @abstractmethod
-    def get_instructions(self) -> str:
-        """Get instructions for the current step.
-
-        Returns:
-            Instructions as a string
-        """
-        pass
-
-    def cancel_capture(self) -> None:
-        """Cancel the current capture process."""
-        self._disconnect_signals()
-        self.capture_cancelled.emit()
-        self.is_capturing = False
-
-    def complete_capture(self) -> None:
-        """Complete the capture process and emit result."""
-        self._disconnect_signals()
-        self.capture_completed.emit(self.result_data)
-        self.is_capturing = False
 
     @classmethod
-    def get_strategy_info(cls) -> StrategyInfo:
-        """Get strategy information.
+    @abstractmethod
+    def create_visual_element(cls, config: Dict[str, Any]) -> VisualElement:
+        """Create a visual element from configuration.
+
+        Args:
+            config: Configuration dictionary
 
         Returns:
-            StrategyInfo: Information about this strategy
+            Visual element created from config
         """
-        raise NotImplementedError("Subclasses must implement get_strategy_info")
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_config_from_element(cls, element: VisualElement) -> Dict[str, Any]:
+        """Get configuration from a visual element.
+
+        Args:
+            element: Visual element to extract config from
+
+        Returns:
+            Configuration dictionary
+        """
+        pass
+
+    @classmethod
+    def handles_element_type(cls, element: VisualElement) -> bool:
+        """Check if this strategy can handle a specific visual element type.
+
+        Args:
+            element: Element to check
+
+        Returns:
+            True if this strategy can handle this element
+        """
+        return False
 
 
 class PixelColorCaptureStrategy(CaptureStrategy):
-    """Strategy for capturing pixel color elements."""
+    """Strategy for capturing pixel colors.
+
+    This strategy allows users to click on points in the overlay to capture
+    the color at those points. It displays the captured points and their colors
+    in the control panel, allowing users to remove points or complete the capture.
+    """
+
+    @classmethod
+    def get_strategy_info(cls) -> StrategyInfo:
+        """Get strategy information."""
+        return StrategyInfo(
+            type_id="pixel_color",
+            display_name="Pixel Color",
+            description="Capture the color of specific pixels by clicking on them",
+            strategy_class=cls
+        )
 
     def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
-        """Initialize the pixel color capture strategy.
-
-        Args:
-            overlay: The overlay widget used for capturing
-            window_capturer: The window capturer for screenshots
-        """
+        """Initialize the pixel color capture strategy."""
         super().__init__(overlay, window_capturer)
         self.captured_points: List[PixelColorElementEntity] = []
+        self.control_panel: Optional['PixelColorControlPanel'] = None
 
-    def start_capture(self) -> None:
+    def _create_control_panel(self) -> QWidget:
+        """Create the control panel for pixel color capture."""
+        self.control_panel = PixelColorControlPanel(self)
+        return self.control_panel
+
+    def start_capture(self) -> QWidget:
         """Start the pixel color capture process."""
+        # Initialize the list of captured points
         self.captured_points = []
-        super().start_capture()
+        self.result_data = self.captured_points
 
-    def _initialize_visuals(self) -> None:
-        """Initialize visual elements for pixel color capture."""
-        super()._initialize_visuals()
+        # Connect to overlay signals
+        self._connect_signals()
 
-    def handle_press(self, event: QMouseEvent) -> None:
-        """Handle pixel color capture on mouse press.
+        # Call parent method to set up and get control panel
+        return super().start_capture()
+
+    def _connect_signals(self) -> None:
+        """Connect to overlay signals."""
+        self.overlay.mouse_pressed.connect(self._on_mouse_pressed)
+
+    def _disconnect_signals(self) -> None:
+        """Disconnect from overlay signals."""
+        self.overlay.mouse_pressed.disconnect(self._on_mouse_pressed)
+
+    def _on_mouse_pressed(self, event: QMouseEvent) -> None:
+        """Handle mouse press to capture pixel color.
 
         Args:
-            event: The mouse press event
+            event: Mouse press event
         """
+        # Only handle left button clicks
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
         x = int(event.position().x())
         y = int(event.position().y())
 
         try:
             # Capture window screenshot
-            capture_result = self.window_capturer.capture_window()
+            capture_result = self.window_capturer.capture()
             if not capture_result:
-                logger.error("Failed to capture window during pixel color capture")
+                logger.error("Failed to capture screen during pixel color capture")
                 return
 
             # Get pixel color from screenshot
-            pil_image = capture_result.to_pil()
-            pixel_color = pil_image.getpixel((x, y))
-
-            # Process color (handle both RGB and RGBA)
-            if len(pixel_color) == 4:  # RGBA
-                r, g, b, _ = pixel_color
-            else:  # RGB
-                r, g, b = pixel_color
+            pixel_color = capture_result.pixel(x, y)
+            r, g, b, a = pixel_color.getRgb()
 
             # Create point and color objects
             point = Point(
                 x=x,
                 y=y,
-                total_width=pil_image.width,
-                total_height=pil_image.height
+                total_width=capture_result.width(),
+                total_height=capture_result.height()
             )
             color = Color(r, g, b)
 
@@ -224,262 +308,578 @@ class PixelColorCaptureStrategy(CaptureStrategy):
             # Add to captured points
             self.captured_points.append(pixel_element)
 
-            # Update result data
-            self.result_data = self.captured_points
-
-            # Add visual feedback
+            # Add visual feedback to overlay
             self.overlay.add_visual_element(
-                PointElement(x, y, color.to_q_color())
+                PointElement(x, y, QColor(r, g, b))
             )
 
-            # Signal step completion
-            self.capture_step_completed.emit(
-                len(self.captured_points),
-                pixel_element
-            )
+            # Update the control panel
+            if self.control_panel:
+                self.control_panel.update_point_list()
+                self.control_panel.update_ui_state()
 
             logger.info(f"Captured pixel at ({x}, {y}) with color RGB({r}, {g}, {b})")
 
         except Exception as e:
             logger.exception(f"Error capturing pixel color: {e}")
 
-    def handle_move(self, event: QMouseEvent) -> None:
-        """Handle mouse move events.
+    def remove_point(self, index: int) -> None:
+        """Remove a captured point.
 
         Args:
-            event: The mouse move event
+            index: Index of the point to remove
         """
-        # Mouse move handling for pixel capture
-        # Could implement hover effects or color preview
-        pass
+        if 0 <= index < len(self.captured_points):
+            # Remove from the list
+            removed_point = self.captured_points.pop(index)
 
-    def handle_release(self, event: QMouseEvent) -> None:
-        """Handle mouse release events.
+            # Remove visual element from overlay
+            current_elements = self.overlay.get_visual_elements()
 
-        Args:
-            event: The mouse release event
-        """
-        # Pixel capture doesn't require special release handling
-        pass
+            # Find and remove the corresponding PointElement
+            # (Not efficient for many points, but works for typical usage)
+            for i, element in enumerate(current_elements):
+                if (isinstance(element, PointElement) and
+                        element.x == removed_point.x and
+                        element.y == removed_point.y):
+                    # Create a new list without this element
+                    new_elements = current_elements[:i] + current_elements[i + 1:]
 
-    def handle_drag(self, start_point: QPoint, current_point: QPoint) -> None:
-        """Handle mouse drag events.
+                    # Update the overlay
+                    self.overlay.clear_visual_elements()
+                    for new_element in new_elements:
+                        self.overlay.add_visual_element(new_element)
+                    break
 
-        Args:
-            start_point: Drag start point
-            current_point: Current drag point
-        """
-        # Pixel capture doesn't use dragging
-        pass
+            # Update the control panel
+            if self.control_panel:
+                self.control_panel.update_point_list()
+                self.control_panel.update_ui_state()
 
-    def get_instructions(self) -> str:
-        """Get instructions for pixel color capture.
-
-        Returns:
-            Instructions as a string
-        """
-        if not self.captured_points:
-            return "Click on points to capture pixel colors"
-        else:
-            count = len(self.captured_points)
-            return f"Captured {count} point(s). Click more points or finish capture."
+    def can_complete(self) -> bool:
+        """Check if capture can be completed."""
+        # Require at least one point to complete
+        return len(self.captured_points) > 0
 
     @classmethod
-    def get_strategy_info(cls) -> StrategyInfo:
-        """Get strategy information.
+    def create_visual_element(cls, config: Dict[str, Any]) -> VisualElement:
+        """Create a visual element from configuration."""
+        if config.get("type") != "pixel_color":
+            raise ValueError(f"Invalid config type: {config.get('type')}")
 
-        Returns:
-            StrategyInfo: Information about this strategy
+        position = config.get("position", {})
+        color = config.get("color", {})
+
+        x = position.get("x", 0)
+        y = position.get("y", 0)
+        r = color.get("r", 0)
+        g = color.get("g", 0)
+        b = color.get("b", 0)
+
+        return PointElement(x, y, QColor(r, g, b))
+
+    @classmethod
+    def get_config_from_element(cls, element: VisualElement) -> Dict[str, Any]:
+        """Get configuration from a visual element."""
+        if not isinstance(element, PointElement):
+            raise ValueError(f"Element is not a PointElement: {type(element).__name__}")
+
+        # Extract color components
+        color = element.color
+        r, g, b, _ = color.getRgb()
+
+        return {
+            "type": "pixel_color",
+            "position": {"x": element.x, "y": element.y},
+            "color": {"r": r, "g": g, "b": b}
+        }
+
+    @classmethod
+    def handles_element_type(cls, element: VisualElement) -> bool:
+        """Check if this strategy can handle this element type."""
+        return isinstance(element, PointElement)
+
+
+class PixelColorControlPanel(ControlPanel):
+    """Control panel for the pixel color capture strategy."""
+
+    def __init__(self, strategy: PixelColorCaptureStrategy):
+        """Initialize the control panel.
+
+        Args:
+            strategy: The pixel color capture strategy
         """
-        return StrategyInfo(
-            type_id="pixel_color",
-            display_name="Pixel Color Element",
-            strategy_class=cls
+        super().__init__(strategy)
+        self.strategy = strategy  # For type checking
+
+        # Add instructions
+        instructions = QLabel(
+            "Click on the overlay to capture pixel colors. "
+            "You can remove points from the list below."
         )
+        instructions.setWordWrap(True)
+        self.content_layout.addWidget(instructions)
+
+        # Points list
+        self.points_list = QLabel("<i>No points captured yet</i>")
+        self.points_list.setWordWrap(True)
+        self.content_layout.addWidget(self.points_list)
+
+        # Buttons to remove points
+        self.remove_last_button = QPushButton("Remove Last Point")
+        self.remove_last_button.clicked.connect(self._remove_last_point)
+        self.remove_last_button.setEnabled(False)
+        self.content_layout.addWidget(self.remove_last_button)
+
+        # Initial update
+        self.update_point_list()
+
+    def update_point_list(self) -> None:
+        """Update the list of captured points displayed in the panel."""
+        points = self.strategy.captured_points
+
+        if not points:
+            self.points_list.setText("<i>No points captured yet</i>")
+            self.remove_last_button.setEnabled(False)
+            return
+
+        # Build HTML for points list
+        html = "<h4>Captured Points:</h4><ol>"
+
+        for point in points:
+            color = point.color
+            html += f'<li>({point.x}, {point.y}) - RGB({color.r}, {color.g}, {color.b})</li>'
+
+        html += "</ol>"
+        self.points_list.setText(html)
+        self.remove_last_button.setEnabled(True)
+
+    def _remove_last_point(self) -> None:
+        """Remove the last captured point."""
+        if self.strategy.captured_points:
+            self.strategy.remove_point(len(self.strategy.captured_points) - 1)
+
+    def update_ui_state(self, state: Optional[CaptureState] = None) -> None:
+        """Update UI state based on the strategy state."""
+        super().update_ui_state(state)
+
+        # Enable/disable remove button based on whether there are points
+        self.remove_last_button.setEnabled(bool(self.strategy.captured_points))
 
 
 class ImageElementCaptureStrategy(CaptureStrategy):
-    """Strategy for capturing image elements with template and detection regions."""
+    """Strategy for capturing rectangular image elements.
 
-    def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
-        """Initialize the image element capture strategy.
-
-        Args:
-            overlay: The overlay widget used for capturing
-            window_capturer: The window capturer for screenshots
-        """
-        super().__init__(overlay, window_capturer)
-        self.template_region: Optional[QRect] = None
-        self.detection_region: Optional[QRect] = None
-        self.current_selection: Optional[QRect] = None
-        self.capture_image = None
-
-    def start_capture(self) -> None:
-        """Start the image element capture process."""
-        self.template_region = None
-        self.detection_region = None
-        self.current_selection = None
-
-        # Capture initial screenshot
-        try:
-            capture_result = self.window_capturer.capture_window()
-            if capture_result:
-                self.capture_image = capture_result.to_pil()
-            else:
-                logger.error("Failed to capture initial screenshot for image element")
-        except Exception as e:
-            logger.exception(f"Error during initial screenshot capture: {e}")
-
-        super().start_capture()
-
-    def _initialize_visuals(self) -> None:
-        """Initialize visual elements for image element capture."""
-        super()._initialize_visuals()
-
-        # Show already captured regions if any
-        if self.template_region:
-            self.overlay.add_visual_element(
-                RectangleElement(
-                    self.template_region,
-                    QColor(0, 255, 0)  # Green for template
-                )
-            )
-
-    def handle_press(self, event: QMouseEvent) -> None:
-        """Handle mouse press events.
-
-        Args:
-            event: The mouse press event
-        """
-        # Start of region selection handled by drag logic
-        pass
-
-    def handle_move(self, event: QMouseEvent) -> None:
-        """Handle mouse move events.
-
-        Args:
-            event: The mouse move event
-        """
-        # Mouse move could show coordinates or other info
-        pass
-
-    def handle_drag(self, start_point: QPoint, current_point: QPoint) -> None:
-        """Handle region selection dragging.
-
-        Args:
-            start_point: Drag start point
-            current_point: Current drag point
-        """
-        # Create selection rectangle
-        selection = QRect(start_point, current_point).normalized()
-        self.current_selection = selection
-
-        # Update visual feedback
-        self.overlay.clear_visual_elements()
-        self._initialize_visuals()
-
-        # Add current selection rectangle
-        self.overlay.add_visual_element(
-            RectangleElement(
-                selection,
-                QColor(255, 0, 0) if self.current_step == 1 else QColor(0, 255, 0),
-                1,
-                QColor(128, 128, 128, 40)  # Semi-transparent fill
-            )
-        )
-
-    def handle_release(self, event: QMouseEvent) -> None:
-        """Complete region selection on mouse release.
-
-        Args:
-            event: The mouse release event
-        """
-        if not self.current_selection:
-            return
-
-        # Ignore too small selections
-        if (self.current_selection.width() < 10 or
-                self.current_selection.height() < 10):
-            logger.info("Selection too small, ignoring")
-            return
-
-        if self.current_step == 0:
-            # Completed template region selection
-            self.template_region = self.current_selection
-            self.current_step = 1
-
-            # Update visuals
-            self.overlay.clear_visual_elements()
-            self._initialize_visuals()
-
-            # Signal step completion
-            self.capture_step_completed.emit(0, self.template_region)
-
-            logger.info(f"Template region selected: {self.template_region}")
-
-        elif self.current_step == 1:
-            # Completed detection region selection
-            self.detection_region = self.current_selection
-
-            # Prepare result data
-            if self.capture_image and self.template_region and self.detection_region:
-                # Convert QRect to Region objects
-                template_region = Region(
-                    name="Template",
-                    start_x=self.template_region.x(),
-                    start_y=self.template_region.y(),
-                    width=self.template_region.width(),
-                    height=self.template_region.height(),
-                    total_width=self.capture_image.width,
-                    total_height=self.capture_image.height
-                )
-
-                detection_region = Region(
-                    name="Detection",
-                    start_x=self.detection_region.x(),
-                    start_y=self.detection_region.y(),
-                    width=self.detection_region.width(),
-                    height=self.detection_region.height(),
-                    total_width=self.capture_image.width,
-                    total_height=self.capture_image.height
-                )
-
-                # Extract template image
-                template_image = self.capture_image.crop((
-                    template_region.start_x,
-                    template_region.start_y,
-                    template_region.start_x + template_region.width,
-                    template_region.start_y + template_region.height
-                ))
-
-                # Set result data
-                self.result_data = (template_image, template_region, detection_region)
-
-                logger.info(f"Detection region selected: {self.detection_region}")
-
-                # Complete capture
-                self.complete_capture()
-
-    def get_instructions(self) -> str:
-        """Get instructions for the current capture step.
-
-        Returns:
-            Instructions as a string
-        """
-        if self.current_step == 0:
-            return "Select template region by dragging"
-        else:
-            return "Now select detection region (larger area containing the template)"
+    This strategy allows users to drag a rectangle on the overlay to capture
+    a portion of the screen as an image element.
+    """
 
     @classmethod
     def get_strategy_info(cls) -> StrategyInfo:
-        """Get strategy information.
-
-        Returns:
-            StrategyInfo: Information about this strategy
-        """
+        """Get strategy information."""
         return StrategyInfo(
             type_id="image_element",
             display_name="Image Element",
+            description="Capture a rectangular area of the screen as an image element",
             strategy_class=cls
         )
+
+    def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
+        """Initialize the image element capture strategy."""
+        super().__init__(overlay, window_capturer)
+        self.start_point: Optional[QPoint] = None
+        self.current_point: Optional[QPoint] = None
+        self.is_dragging = False
+        self.rectangle_element: Optional[RectangleElement] = None
+        self.captured_image: Optional[QImage] = None
+        self.control_panel: Optional['ImageElementControlPanel'] = None
+        self.captured_rect: Optional[QRect] = None
+
+    def _create_control_panel(self) -> QWidget:
+        """Create the control panel for image element capture."""
+        self.control_panel = ImageElementControlPanel(self)
+        return self.control_panel
+
+    def start_capture(self) -> QWidget:
+        """Start the image element capture process."""
+        # Reset state
+        self.start_point = None
+        self.current_point = None
+        self.is_dragging = False
+        self.rectangle_element = None
+        self.captured_image = None
+        self.captured_rect = None
+        self.result_data = None
+
+        # Connect to overlay signals
+        self._connect_signals()
+
+        # Call parent method to set up and get control panel
+        return super().start_capture()
+
+    def _connect_signals(self) -> None:
+        """Connect to overlay signals."""
+        self.overlay.mouse_pressed.connect(self._on_mouse_pressed)
+        self.overlay.mouse_moved.connect(self._on_mouse_moved)
+        self.overlay.mouse_released.connect(self._on_mouse_released)
+
+    def _disconnect_signals(self) -> None:
+        """Disconnect from overlay signals."""
+        self.overlay.mouse_pressed.disconnect(self._on_mouse_pressed)
+        self.overlay.mouse_moved.disconnect(self._on_mouse_moved)
+        self.overlay.mouse_released.disconnect(self._on_mouse_released)
+
+    def _on_mouse_pressed(self, event: QMouseEvent) -> None:
+        """Handle mouse press to start rectangle selection.
+
+        Args:
+            event: Mouse press event
+        """
+        # Only handle left button clicks
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        # Start new selection
+        self.start_point = event.position().toPoint()
+        self.current_point = self.start_point
+        self.is_dragging = True
+
+        # Create or update rectangle element
+        self._update_rectangle()
+
+    def _on_mouse_moved(self, event: QMouseEvent) -> None:
+        """Handle mouse move during selection.
+
+        Args:
+            event: Mouse move event
+        """
+        if not self.is_dragging:
+            return
+
+        self.current_point = event.position().toPoint()
+        self._update_rectangle()
+
+    def _on_mouse_released(self, event: QMouseEvent) -> None:
+        """Handle mouse release to complete rectangle selection.
+
+        Args:
+            event: Mouse release event
+        """
+        if not self.is_dragging or event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        self.is_dragging = False
+        self.current_point = event.position().toPoint()
+
+        # Create normalized rectangle
+        x1 = min(self.start_point.x(), self.current_point.x())
+        y1 = min(self.start_point.y(), self.current_point.y())
+        x2 = max(self.start_point.x(), self.current_point.x())
+        y2 = max(self.start_point.y(), self.current_point.y())
+
+        width = x2 - x1
+        height = y2 - y1
+
+        # Ensure rectangle has minimum size
+        if width < 10 or height < 10:
+            # Too small, ignore
+            if self.rectangle_element:
+                self.overlay.remove_visual_element(self.rectangle_element)
+                self.rectangle_element = None
+            return
+
+        # Save the rect
+        self.captured_rect = QRect(x1, y1, width, height)
+
+        # Final update to rectangle
+        self._update_rectangle()
+
+        # Capture the image
+        self._capture_image()
+
+        # Update UI state
+        if self.control_panel:
+            self.control_panel.update_image_preview()
+            self.control_panel.update_ui_state()
+
+    def _update_rectangle(self) -> None:
+        """Update or create the rectangle visual element."""
+        if not self.start_point or not self.current_point:
+            return
+
+        # Calculate rectangle coordinates
+        x1 = min(self.start_point.x(), self.current_point.x())
+        y1 = min(self.start_point.y(), self.current_point.y())
+        x2 = max(self.start_point.x(), self.current_point.x())
+        y2 = max(self.start_point.y(), self.current_point.y())
+
+        rect = QRect(x1, y1, x2 - x1, y2 - y1)
+
+        # Create or update rectangle element
+        if self.rectangle_element:
+            # Remove existing rectangle
+            self.overlay.remove_visual_element(self.rectangle_element)
+
+        # Create new rectangle with semi-transparent fill
+        self.rectangle_element = RectangleElement(
+            rect,
+            color=QColor(0, 120, 215),
+            width=2,
+            fill_color=QColor(0, 120, 215, 40)
+        )
+
+        # Add to overlay
+        self.overlay.add_visual_element(self.rectangle_element)
+
+    def _capture_image(self) -> None:
+        """Capture the image within the selected rectangle."""
+        if not self.captured_rect:
+            return
+
+        # Capture screen
+        screen_image = self.window_capturer.capture()
+        if not screen_image:
+            logger.error("Failed to capture screen for image element")
+            return
+
+        # Crop to selection
+        self.captured_image = screen_image.copy(
+            self.captured_rect.x(),
+            self.captured_rect.y(),
+            self.captured_rect.width(),
+            self.captured_rect.height()
+        )
+
+        # Create result data
+        self.result_data = {
+            "rect": {
+                "x": self.captured_rect.x(),
+                "y": self.captured_rect.y(),
+                "width": self.captured_rect.width(),
+                "height": self.captured_rect.height()
+            },
+            "image": self.captured_image
+        }
+
+        # Update the preview in the control panel
+        if self.control_panel:
+            self.control_panel.update_image_preview()
+
+    def reset_capture(self) -> None:
+        """Reset the capture and start over."""
+        # Clear current selection
+        if self.rectangle_element:
+            self.overlay.remove_visual_element(self.rectangle_element)
+            self.rectangle_element = None
+
+        # Reset state
+        self.start_point = None
+        self.current_point = None
+        self.is_dragging = False
+        self.captured_image = None
+        self.captured_rect = None
+        self.result_data = None
+
+        # Update UI
+        if self.control_panel:
+            self.control_panel.update_image_preview()
+            self.control_panel.update_ui_state()
+
+    def can_complete(self) -> bool:
+        """Check if capture can be completed."""
+        return self.captured_image is not None
+
+    @classmethod
+    def create_visual_element(cls, config: Dict[str, Any]) -> VisualElement:
+        """Create a visual element from configuration."""
+        if config.get("type") != "image_element":
+            raise ValueError(f"Invalid config type: {config.get('type')}")
+
+        rect_config = config.get("rect", {})
+
+        x = rect_config.get("x", 0)
+        y = rect_config.get("y", 0)
+        width = rect_config.get("width", 10)
+        height = rect_config.get("height", 10)
+
+        return RectangleElement(
+            QRect(x, y, width, height),
+            color=QColor(0, 120, 215),
+            width=2,
+            fill_color=QColor(0, 120, 215, 40)
+        )
+
+    @classmethod
+    def get_config_from_element(cls, element: VisualElement) -> Dict[str, Any]:
+        """Get configuration from a visual element."""
+        if not isinstance(element, RectangleElement):
+            raise ValueError(f"Element is not a RectangleElement: {type(element).__name__}")
+
+        rect = element.rect
+
+        return {
+            "type": "image_element",
+            "rect": {
+                "x": rect.x(),
+                "y": rect.y(),
+                "width": rect.width(),
+                "height": rect.height()
+            }
+        }
+
+    @classmethod
+    def handles_element_type(cls, element: VisualElement) -> bool:
+        """Check if this strategy can handle this element type."""
+        return isinstance(element, RectangleElement)
+
+
+class ImageElementControlPanel(ControlPanel):
+    """Control panel for the image element capture strategy."""
+
+    def __init__(self, strategy: ImageElementCaptureStrategy):
+        """Initialize the control panel.
+
+        Args:
+            strategy: The image element capture strategy
+        """
+        super().__init__(strategy)
+        self.strategy = strategy  # For type checking
+
+        # Add instructions
+        instructions = QLabel(
+            "Draw a rectangle on the overlay by clicking and dragging. "
+            "Release to capture the image."
+        )
+        instructions.setWordWrap(True)
+        self.content_layout.addWidget(instructions)
+
+        # Image preview label
+        self.preview_label = QLabel("No image captured yet")
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setMinimumHeight(150)
+        self.content_layout.addWidget(self.preview_label)
+
+        # Reset button
+        self.reset_button = QPushButton("Reset")
+        self.reset_button.clicked.connect(self.strategy.reset_capture)
+        self.reset_button.setEnabled(False)
+        self.content_layout.addWidget(self.reset_button)
+
+        # Initial update
+        self.update_image_preview()
+
+    def update_image_preview(self) -> None:
+        """Update the image preview with the captured image."""
+        from PySide6.QtGui import QPixmap
+
+        if not self.strategy.captured_image:
+            self.preview_label.setText("No image captured yet")
+            return
+
+        # Create pixmap from image
+        pixmap = QPixmap.fromImage(self.strategy.captured_image)
+
+        # Scale for preview if needed
+        if pixmap.width() > 300:
+            pixmap = pixmap.scaledToWidth(300, Qt.TransformationMode.SmoothTransformation)
+
+        # Set the pixmap
+        self.preview_label.setPixmap(pixmap)
+
+    def update_ui_state(self, state: Optional[CaptureState] = None) -> None:
+        """Update UI state based on the strategy state."""
+        super().update_ui_state(state)
+
+        # Enable/disable reset button based on whether there's a captured image
+        self.reset_button.setEnabled(self.strategy.captured_image is not None)
+
+
+class ControlPanel(QWidget):
+    """Base class for strategy control panels.
+
+    This provides common UI elements and layout for all strategy control panels.
+    """
+
+    def __init__(self, strategy: 'CaptureStrategy', parent: Optional[QWidget] = None):
+        """Initialize the control panel.
+
+        Args:
+            strategy: The strategy this panel controls
+            parent: Optional parent widget
+        """
+        super().__init__(parent)
+        self.strategy = strategy
+
+        # Set up layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout.setSpacing(10)
+
+        # Add title
+        info = strategy.get_strategy_info()
+        title_label = QLabel(f"<h3>{info.display_name}</h3>")
+        self.main_layout.addWidget(title_label)
+
+        # Add description
+        desc_label = QLabel(info.description)
+        desc_label.setWordWrap(True)
+        self.main_layout.addWidget(desc_label)
+
+        # Content area (to be filled by subclasses)
+        self.content_layout = QVBoxLayout()
+        self.main_layout.addLayout(self.content_layout)
+
+        # Add spacer
+        self.main_layout.addStretch(1)
+
+        # Buttons area
+        self.buttons_layout = QHBoxLayout()
+        self.main_layout.addLayout(self.buttons_layout)
+
+        # Cancel button
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.clicked.connect(self.strategy.cancel_capture)
+
+        # Complete button
+        self.complete_button = QPushButton("Complete")
+        self.complete_button.clicked.connect(self.strategy.complete_capture)
+
+        # Add buttons to layout
+        self.buttons_layout.addWidget(self.cancel_button)
+        self.buttons_layout.addStretch(1)
+        self.buttons_layout.addWidget(self.complete_button)
+
+        # Initialize UI state
+        self.update_ui_state()
+
+        # Connect to strategy signals
+        self.strategy.state_changed.connect(self.update_ui_state)
+
+    def update_ui_state(self, state: Optional[CaptureState] = None) -> None:
+        """Update UI based on current strategy state.
+
+        Args:
+            state: Optional state that triggered the update
+        """
+        if state is None:
+            state = self.strategy.state
+
+        # Complete button is only enabled if capture can be completed
+        self.complete_button.setEnabled(self.strategy.can_complete())
+
+    def keyPressEvent(self, event):
+        """Handle key press events.
+
+        Args:
+            event: Key event
+        """
+        # Escape cancels capture
+        if event.key() == Qt.Key.Key_Escape:
+            self.strategy.cancel_capture()
+
+        # Enter completes capture if it can be completed
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self.strategy.can_complete():
+                self.strategy.complete_capture()
+
+        super().keyPressEvent(event)
