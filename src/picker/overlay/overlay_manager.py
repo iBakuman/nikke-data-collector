@@ -7,8 +7,6 @@ overlay widget and capture strategies for different element types.
 from typing import Any, Dict, List, Optional, Type
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
-                               QVBoxLayout)
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
@@ -19,84 +17,6 @@ from picker.overlay.capture_strategies import (CaptureStrategy,
 from picker.overlay.overlay_widget import OverlayWidget
 
 logger = get_logger(__name__)
-
-
-class CaptureDialog(QDialog):
-    """Dialog for controlling element capture process."""
-    
-    def __init__(self, strategy: CaptureStrategy, parent=None):
-        """Initialize the capture dialog.
-        
-        Args:
-            strategy: The active capture strategy
-            parent: Optional parent widget
-        """
-        super().__init__(parent)
-        self.strategy = strategy
-        self.setWindowTitle("Element Capture")
-        self.setMinimumWidth(300)
-        
-        # Setup UI
-        self._init_ui()
-        
-        # Connect to strategy signals
-        self.strategy.capture_step_completed.connect(self._on_step_completed)
-        self.strategy.capture_completed.connect(self.accept)
-        self.strategy.capture_cancelled.connect(self.reject)
-    
-    def _init_ui(self):
-        """Initialize the dialog UI."""
-        layout = QVBoxLayout(self)
-        
-        # Instructions label
-        self.instructions_label = QLabel(self.strategy.get_instructions())
-        layout.addWidget(self.instructions_label)
-        
-        # Status label
-        self.status_label = QLabel("Ready to capture")
-        layout.addWidget(self.status_label)
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        
-        self.done_button = QPushButton("Done")
-        self.done_button.clicked.connect(self._on_done)
-        
-        self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self._on_cancel)
-        
-        button_layout.addWidget(self.done_button)
-        button_layout.addWidget(self.cancel_button)
-        
-        layout.addLayout(button_layout)
-    
-    def _on_step_completed(self, step_index: int, step_data: Any):
-        """Handle strategy step completion.
-        
-        Args:
-            step_index: The completed step index
-            step_data: The step result data
-        """
-        # Update instructions
-        self.instructions_label.setText(self.strategy.get_instructions())
-        
-        # Update status based on step
-        if isinstance(self.strategy, PixelColorCaptureStrategy):
-            self.status_label.setText(f"Captured {step_index} point(s)")
-        elif isinstance(self.strategy, ImageElementCaptureStrategy):
-            if step_index == 0:
-                self.status_label.setText("Template region selected")
-            else:
-                self.status_label.setText("Detection region selected")
-    
-    def _on_done(self):
-        """Handle done button click."""
-        self.strategy.complete_capture()
-    
-    def _on_cancel(self):
-        """Handle cancel button click."""
-        self.strategy.cancel_capture()
-
 
 class OverlayManager(QObject):
     """Manager for coordinating overlay widget and capture strategies."""
