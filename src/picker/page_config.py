@@ -523,12 +523,18 @@ class PageConfigManager:
         # Return the next available ID
         return str(max(numeric_ids) + 1)
 
-    def add_page_identifier(self, page_id: str, element_id: str) -> None:
-        """Add an identifier element to a page.
+    def _validate_page_element(self, page_id: str, element_id: str) -> PageConfig:
+        """Validate that a page exists and contains the specified element.
 
         Args:
             page_id: ID of the page
-            element_id: ID of the element to add as identifier
+            element_id: ID of the element
+
+        Returns:
+            The page configuration
+
+        Raises:
+            ValueError: If page or element doesn't exist
         """
         if page_id not in self.config.pages:
             raise ValueError(f"Page with ID {page_id} does not exist")
@@ -537,6 +543,17 @@ class PageConfigManager:
 
         if element_id not in page.elements:
             raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
+
+        return page
+
+    def add_page_identifier(self, page_id: str, element_id: str) -> None:
+        """Add an identifier element to a page.
+
+        Args:
+            page_id: ID of the page
+            element_id: ID of the element to add as identifier
+        """
+        page = self._validate_page_element(page_id, element_id)
 
         if element_id not in page.identifier_element_ids:
             page.identifier_element_ids.append(element_id)
@@ -548,13 +565,7 @@ class PageConfigManager:
             page_id: ID of the page
             element_id: ID of the interactive element to add
         """
-        if page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {page_id} does not exist")
-
-        page = self.config.pages[page_id]
-
-        if element_id not in page.elements:
-            raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
+        page = self._validate_page_element(page_id, element_id)
 
         if element_id not in page.interactive_element_ids:
             page.interactive_element_ids.append(element_id)
@@ -569,16 +580,10 @@ class PageConfigManager:
             target_page_id: ID of the target page
             confirmation_element_ids: Optional list of element IDs that confirm arrival at target page
         """
-        if page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {page_id} does not exist")
+        page = self._validate_page_element(page_id, element_id)
 
         if target_page_id not in self.config.pages:
             raise ValueError(f"Target page with ID {target_page_id} does not exist")
-
-        page = self.config.pages[page_id]
-
-        if element_id not in page.elements:
-            raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
 
         # Validate confirmation elements if provided
         if confirmation_element_ids:
@@ -607,15 +612,7 @@ class PageConfigManager:
         Returns:
             The element instance
         """
-        # Check if page exists
-        if page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {page_id} does not exist")
-
-        page = self.config.pages[page_id]
-
-        # Check if element exists in page
-        if element_id not in page.elements:
-            raise ValueError(f"Element with ID {element_id} does not exist in page {page_id}")
+        page = self._validate_page_element(page_id, element_id)
 
         # Check cache first
         if page_id in self._element_cache and element_id in self._element_cache[page_id]:
@@ -639,6 +636,23 @@ class PageConfigManager:
 
         return element
 
+    def _validate_page(self, page_id: str) -> PageConfig:
+        """Validate that a page exists and return its configuration.
+
+        Args:
+            page_id: ID of the page
+
+        Returns:
+            The page configuration
+
+        Raises:
+            ValueError: If page doesn't exist
+        """
+        if page_id not in self.config.pages:
+            raise ValueError(f"Page with ID {page_id} does not exist")
+
+        return self.config.pages[page_id]
+
     def get_page_identifiers(self, page_id: str) -> List[UIElement]:
         """Get all identifier elements for a page.
 
@@ -648,10 +662,7 @@ class PageConfigManager:
         Returns:
             List of identifier elements
         """
-        if page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {page_id} does not exist")
-
-        page = self.config.pages[page_id]
+        page = self._validate_page(page_id)
 
         return [self.get_element(page_id, element_id)
                 for element_id in page.identifier_element_ids]
@@ -665,13 +676,27 @@ class PageConfigManager:
         Returns:
             List of interactive elements
         """
-        if page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {page_id} does not exist")
-
-        page = self.config.pages[page_id]
+        page = self._validate_page(page_id)
 
         return [self.get_element(page_id, element_id)
                 for element_id in page.interactive_element_ids]
+
+    def _validate_pages(self, from_page_id: str, to_page_id: str) -> tuple[PageConfig, PageConfig]:
+        """Validate that two pages exist and return their configurations.
+
+        Args:
+            from_page_id: ID of the source page
+            to_page_id: ID of the target page
+
+        Returns:
+            Tuple of (source page configuration, target page configuration)
+
+        Raises:
+            ValueError: If either page doesn't exist
+        """
+        from_page = self._validate_page(from_page_id)
+        to_page = self._validate_page(to_page_id)
+        return from_page, to_page
 
     def get_transition_element(self, from_page_id: str, to_page_id: str) -> Optional[UIElement]:
         """Get the element to click to transition from one page to another.
@@ -683,16 +708,10 @@ class PageConfigManager:
         Returns:
             The element to click or None if no direct transition exists
         """
-        if from_page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {from_page_id} does not exist")
-
-        if to_page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {to_page_id} does not exist")
-
-        page = self.config.pages[from_page_id]
+        from_page, _ = self._validate_pages(from_page_id, to_page_id)
 
         # Find transition
-        for transition in page.transitions:
+        for transition in from_page.transitions:
             if transition.target_page == to_page_id:
                 return self.get_element(from_page_id, transition.element_id)
 
@@ -708,13 +727,7 @@ class PageConfigManager:
         Returns:
             List of elements that should be present on the target page
         """
-        if from_page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {from_page_id} does not exist")
-
-        if to_page_id not in self.config.pages:
-            raise ValueError(f"Page with ID {to_page_id} does not exist")
-
-        from_page = self.config.pages[from_page_id]
+        from_page, _ = self._validate_pages(from_page_id, to_page_id)
 
         # Find transition
         for transition in from_page.transitions:

@@ -18,8 +18,8 @@ from collector.window_capturer import WindowCapturer
 from picker.designer.main import Ui_MainWindow
 from picker.overlay.overlay_manager import OverlayManager
 from picker.overlay.overlay_widget import OverlayWidget
+from picker.page_config import PageConfigManager
 from processor.elements import ImageElement, PixelColorElement
-from processor.page_config import PageConfigManager
 
 logger = get_logger(__name__)
 

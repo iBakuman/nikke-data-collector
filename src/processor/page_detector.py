@@ -5,12 +5,11 @@ This module provides functionality for detecting the current page based on
 identifier elements and handling transitions between pages.
 """
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional
 
 from PIL import Image
 
-from processor.elements import ImageElement, PixelColorElement, UIElement
-from processor.page_config import PageConfigManager
+from picker.page_config import PageConfigManager
 
 
 class PageDetectionResult:

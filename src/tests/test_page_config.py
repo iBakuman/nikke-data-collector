@@ -1,8 +1,6 @@
 """
 Tests for the page configuration functionality.
 """
-import io
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,10 +8,10 @@ from pathlib import Path
 from PIL import Image
 
 from domain.regions import Region
-from processor.elements import ImageElement, PixelColorElement
-from processor.page_config import (ElementType, ElementTypeRegistry,
-                                   GameConfig, ImageElementHandler,
-                                   PageConfigManager, PixelColorElementHandler)
+from picker.page_config import (ElementType, ElementTypeRegistry,
+                                ImageElementHandler,
+                                PageConfigManager, PixelColorElementHandler)
+from processor.elements import ImageElement
 
 
 class TestPageConfig(unittest.TestCase):

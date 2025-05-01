@@ -8,50 +8,6 @@ different parts of the system such as screen regions, UI elements, and states.
 from enum import Enum, auto
 
 
-class RegionKey(Enum):
-    """
-    Keys for identifying screen regions.
-    
-    These keys uniquely identify different areas of the screen that are
-    relevant for the NIKKE data collection system.
-    """
-    
-    # General screen regions
-    FULL_SCREEN = auto()
-    HEADER = auto()
-    FOOTER = auto()
-    MAIN_CONTENT = auto()
-    
-    # Menu regions
-    MAIN_MENU = auto()
-    TOP_MENU = auto()
-    SIDE_MENU = auto()
-    
-    # Game-specific regions
-    CHARACTER_LIST = auto()
-    CHARACTER_DETAILS = auto()
-    INVENTORY = auto()
-    SHOP = auto()
-    GACHA = auto()
-    BATTLE = auto()
-    LOBBY = auto()
-    
-    # Dialog regions
-    DIALOG_BOX = auto()
-    CONFIRMATION_DIALOG = auto()
-    ERROR_DIALOG = auto()
-    
-    # Button regions
-    BACK_BUTTON = auto()
-    CONFIRM_BUTTON = auto()
-    CANCEL_BUTTON = auto()
-    CLOSE_BUTTON = auto()
-    
-    # Custom or specialized regions
-    CHARACTER_STATS = auto()
-    SKILL_DESCRIPTION = auto()
-    EQUIPMENT_SLOTS = auto()
-
 class StateType(Enum):
     """
     Types of screen states.

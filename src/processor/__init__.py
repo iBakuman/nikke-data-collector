@@ -12,14 +12,14 @@ from .conditions import (ElementCondition, MultiCondition, StateCondition,
 from .context import AutomationContext, Result
 from .controller import AutomationController
 from .elements import ImageElementEntity, TextElement, UIElement
-from .enums import CollectorType, RegionKey, StateType, StepId
+from .enums import CollectorType, StateType, StepId
 from .states import ScreenState
 from .steps import (AutomationStep, CollectionStep, ConditionalStep,
                     InteractionStep, WaitStep)
 
 __all__ = [
     # Enums
-    'StateType', 'RegionKey', 'StepId', 'CollectorType',
+    'StateType', 'StepId', 'CollectorType',
 
     # Elements
     'UIElement', 'TextElement', 'ImageElementEntity',
