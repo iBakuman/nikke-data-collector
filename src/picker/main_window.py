@@ -348,20 +348,9 @@ class MainWindow(QMainWindow):
         if not ok or not element_name:
             return
 
-        # Try to capture target window
-        capture_result = self.window_capturer.capture_window()
-        if not capture_result:
-            QMessageBox.critical(self, "Error", "Failed to capture target window")
-            return
-
-        # Store current element creation context
         self.current_element_name = element_name
         self.current_page_id = page_id
-
-        # Update status
         self.status_bar.showMessage(f"Capturing {strategy_info.display_name}...")
-
-        # Start capture process
         try:
             result = self.overlay_manager.start_capture(strategy_info.type_id)
             if result is None:

@@ -177,19 +177,11 @@ class OverlayManager(QObject):
         # Create strategy instance
         self.current_strategy = strategy_info.strategy_class(self.overlay, self.window_capturer)
         
-        # Create and configure capture dialog
-        dialog = CaptureDialog(self.current_strategy)
-        
-        # Start capture
         self.capture_started.emit(strategy_type_id)
         self.current_strategy.start_capture()
-        
-        # Show dialog and wait for completion
-        result = dialog.exec()
-        
-        # Get capture result
+
         capture_result = None
-        if result == QDialog.DialogCode.Accepted and self.current_strategy.result_data:
+        if  self.current_strategy.result_data:
             capture_result = self.current_strategy.result_data
             self.capture_completed.emit(strategy_type_id, capture_result)
         else:
