@@ -4,7 +4,7 @@ import sys
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager
 from picker.data import get_page_config_path
-from picker.picker_page_config import run_config_window
+from picker.main_window import run_config_window
 
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "0"
 os.environ["QT_SCALE_FACTOR"] = "1"

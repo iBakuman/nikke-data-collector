@@ -24,7 +24,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(617, 454)
+        MainWindow.resize(591, 454)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout_4 = QVBoxLayout(self.centralwidget)
@@ -157,6 +157,9 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_8.addLayout(self.verticalLayout_3)
 
+        self.horizontalLayout_8.setStretch(0, 2)
+        self.horizontalLayout_8.setStretch(1, 1)
+        self.horizontalLayout_8.setStretch(2, 2)
 
         self.verticalLayout_4.addLayout(self.horizontalLayout_8)
 
@@ -178,7 +181,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 617, 33))
+        self.menubar.setGeometry(QRect(0, 0, 591, 33))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
