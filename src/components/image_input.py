@@ -2,10 +2,12 @@ import io
 
 from PIL import Image
 from PySide6.QtCore import QBuffer, QEvent, Qt, Signal
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QPixmap, QKeyEvent
 from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
                                QLineEdit, QMessageBox, QPushButton,
                                QVBoxLayout, QWidget)
+
+from extractor.character_extractor import pil_to_qimage
 
 
 class ImageInputWidget(QWidget):
@@ -58,9 +60,12 @@ class ImageInputWidget(QWidget):
     def eventFilter(self, obj, event):
         """Filter events to capture keyboard shortcuts"""
         # Handle Ctrl+V keyboard shortcut
-        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_V and (event.modifiers() & Qt.ControlModifier):
-            self._on_paste()
-            return True
+        if isinstance(event, QKeyEvent):
+            if (event.type() == QEvent.Type.KeyPress and
+                    event.key() == Qt.Key.Key_V and
+                    (event.modifiers() & Qt.KeyboardModifier.ControlModifier)):
+                self._on_paste()
+                return True
         return super().eventFilter(obj, event)
 
     def _on_browse(self):
@@ -91,10 +96,10 @@ class ImageInputWidget(QWidget):
             if not q_image.isNull():
                 # Convert QImage to PIL Image
                 buffer = QBuffer()
-                buffer.open(QBuffer.ReadWrite)
+                buffer.open(QBuffer.OpenModeFlag.ReadWrite)
                 q_image.save(buffer, "PNG")
                 buffer.seek(0)
-                pil_image = Image.open(io.BytesIO(buffer.data()))
+                pil_image = Image.open(io.BytesIO(buffer.data().data()))
                 self._set_image(pil_image, "[Pasted from clipboard]")
             else:
                 QMessageBox.warning(self, "Warning", "Clipboard contains an invalid image")
@@ -107,7 +112,7 @@ class ImageInputWidget(QWidget):
 
         # Update the preview
         if image:
-            q_image = self._pil_to_qimage(image)
+            q_image = pil_to_qimage(image)
             pixmap = QPixmap.fromImage(q_image)
 
             # Scale pixmap to fit in preview, maintaining aspect ratio
@@ -115,8 +120,8 @@ class ImageInputWidget(QWidget):
             scaled_pixmap = pixmap.scaled(
                 preview_size.width(),
                 preview_size.height(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
             )
 
             self.preview_label.setPixmap(scaled_pixmap)
@@ -137,21 +142,3 @@ class ImageInputWidget(QWidget):
         self._image = None
         self.preview_label.clear()
         self.path_field.clear()
-
-    def _pil_to_qimage(self, pil_image):
-        """Convert PIL Image to QImage"""
-        if pil_image.mode == "RGB":
-            r, g, b = pil_image.split()
-            pil_image = Image.merge("RGB", (b, g, r))
-        elif pil_image.mode == "RGBA":
-            r, g, b, a = pil_image.split()
-            pil_image = Image.merge("RGBA", (b, g, r, a))
-
-        data = pil_image.tobytes("raw", pil_image.mode)
-
-        if pil_image.mode == "RGBA":
-            qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGBA8888)
-        else:
-            qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGB888)
-
-        return qimage

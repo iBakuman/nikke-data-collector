@@ -13,7 +13,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from ui.character_extractor_ui import CharacterExtractorApp
+from extractor.character_extractor_ui import CharacterExtractorApp
 
 
 def main():
