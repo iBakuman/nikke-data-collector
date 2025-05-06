@@ -1,8 +1,8 @@
 from typing import Dict
 
-from collector.character_extractor import CharacterExtractionParams, extract_characters
 from collector.ui_def import STANDARD_CHARACTER_HEIGHT, \
     STANDARD_CHARACTER_WIDTH
+from extractor.character_extractor import CharacterExtractionParams, extract_characters
 
 character_maps: list[Dict[int, str]] = [
     {

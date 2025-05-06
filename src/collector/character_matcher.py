@@ -80,7 +80,7 @@ class CharacterMatcher:
                 continue
 
             # Test each image
-            for image_id, image_data, _ in char_images:
+            for image_id, image_data in char_images:
                 try:
                     # Convert blob to OpenCV image and preprocess
                     ref_image = ImageProcessor.blob_to_cv_image(image_data)

@@ -35,10 +35,10 @@ from collector.tournament_championship_collector import \
 from collector.tournament_promotion_collector import PromotionDataCollector
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, WindowNotFoundException
+from components.path_selector import PathSelector
 from config_manager import ConfigManager
 from repository import CharacterDAO
 from ui.designer.main import Ui_MainWindow
-from ui.path_selector import PathSelector
 from ui.time_warning_dialog import TimeWarningDialog
 
 # Initialize logging with platform-specific log directory
