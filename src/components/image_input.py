@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL.ImageQt import ImageQt
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QHBoxLayout,
@@ -36,7 +36,7 @@ class ImageInputWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._image = QImage()
+        self.image = QImage()
         self._setup_ui()
         shortcut = QShortcut(QKeySequence("Ctrl+V"), self)
         shortcut.activated.connect(self._on_paste)
@@ -85,12 +85,12 @@ class ImageInputWidget(QWidget):
 
     def _show_preview(self):
         """Show image preview in a dialog"""
-        if not self._image:
+        if not self.image:
             return
 
         try:
             dialog = PreviewDialog(self)
-            pixmap = QPixmap.fromImage(self._image)
+            pixmap = QPixmap.fromImage(self.image)
             dialog.set_image(pixmap)
             dialog.show()
         except Exception as e:
@@ -107,11 +107,7 @@ class ImageInputWidget(QWidget):
 
         if file_path:
             try:
-                # Load the image
-                image = Image.open(file_path)
-                data = image.tobytes("RGBA")
-                QImage.fromData()
-                self._set_image(image, file_path)
+                self._set_image(ImageQt(file_path), file_path)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load image: {str(e)}")
 
@@ -123,6 +119,8 @@ class ImageInputWidget(QWidget):
         if mime_data.hasImage():
             # Get image from clipboard
             q_image = clipboard.image()
+            _format = q_image.format()
+            print(_format)
             if not q_image.isNull():
                 self._set_image(q_image, "[Pasted from clipboard]")
             else:
@@ -132,7 +130,7 @@ class ImageInputWidget(QWidget):
 
     def _set_image(self, image: QImage, source_path: str=""):
         """Set the image and update the UI"""
-        self._image = image
+        self.image = image
 
         # Update the UI
         if image:
@@ -146,13 +144,9 @@ class ImageInputWidget(QWidget):
             self.preview_btn.setEnabled(False)
             self.path_field.clear()
 
-    def get_image(self):
-        """Get the currently selected image"""
-        return self._image
-
     def clear(self):
         """Clear the currently selected image"""
-        self._image = None
+        self.image = None
         self.status_label.setText("No image selected")
         self.preview_btn.setEnabled(False)
         self.path_field.clear()

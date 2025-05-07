@@ -1,5 +1,6 @@
 import os
 
+from PIL.ImageQt import fromqimage, ImageQt
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox,
@@ -7,18 +8,20 @@ from PySide6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox,
                                QPushButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from collector.logging_config import get_logger
+from collector.ui_def import STANDARD_CHARACTER_HEIGHT, STANDARD_CHARACTER_WIDTH
 from components.image_input import ImageInputWidget
 from components.path_selector import PathSelector
 from extractor.app_config import AppConfigManager
 from extractor.character_extractor import CharacterExtractionParams, calculate_character_positions, \
-    generate_character_filename, pil_to_qimage
+    generate_character_filename
 
 logger = get_logger(__name__)
+
 
 class MainWindow(QWidget):
     """Character extraction application with GUI for selecting characters and naming them"""
 
-    def __init__(self,config_manager:AppConfigManager, parent=None):
+    def __init__(self, config_manager: AppConfigManager, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Character Extractor")
 
@@ -26,10 +29,10 @@ class MainWindow(QWidget):
         self.current_position_index = 0
         self.selected_positions = []
         self.extraction_params = CharacterExtractionParams(
-            boundary_width=50,
-            character_width=120,
-            character_spacing=10,
-            height_width_ratio=1.5
+            boundary_width=158,
+            character_width=222,
+            character_spacing=55,
+            height_width_ratio=STANDARD_CHARACTER_HEIGHT / STANDARD_CHARACTER_WIDTH
         )
         self.extracted_images = {}  # To store temporary images
         self.config_manager = config_manager
@@ -124,7 +127,6 @@ class MainWindow(QWidget):
         self.config_manager.set("output_dir", path)
         self.config_manager.save_config()
 
-
     def _select_all_positions(self):
         """Select all character positions"""
         for checkbox in self.position_checkboxes:
@@ -154,7 +156,7 @@ class MainWindow(QWidget):
             return
 
         # Get input image
-        image = self.image_input.get_image()
+        image = fromqimage(self.image_input.image)
         if image is None:
             QMessageBox.warning(self, "Warning", "Please select or paste an image first.")
             return
@@ -228,20 +230,13 @@ class MainWindow(QWidget):
         character_image = self.extracted_images[current_position]
 
         # Display the image
-        qimage = pil_to_qimage(character_image)
+        qimage = ImageQt(character_image)
         pixmap = QPixmap.fromImage(qimage)
-        self.image_label.setPixmap(pixmap.scaled(
-            self.image_label.width(),
-            self.image_label.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        ))
+        self.image_label.setPixmap(pixmap)
 
         # Update status
         progress = f"{self.current_position_index + 1}/{len(self.selected_positions)}"
         self.status_label.setText(f"Naming character at position {current_position} ({progress})")
-
-        # Clear the name input
         self.name_input.clear()
 
     def _save_current_and_advance(self):

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 from PIL import Image
-from PySide6.QtGui import QImage
 
 from collector.logging_config import get_logger
 
@@ -184,21 +183,3 @@ def generate_character_filename(output_folder: str, character_name: str) -> str:
     new_filename = f"{next_id_str}_{character_name}_a.png"
 
     return os.path.join(output_folder, new_filename)
-
-
-def pil_to_qimage(pil_image: Image.Image):
-    if pil_image.mode == "RGB":
-        r, g, b = pil_image.split()
-        pil_image = Image.merge("RGB", (b, g, r))
-    elif pil_image.mode == "RGBA":
-        r, g, b, a = pil_image.split()
-        pil_image = Image.merge("RGBA", (b, g, r, a))
-
-    data = pil_image.tobytes("raw", pil_image.mode)
-
-    if pil_image.mode == "RGBA":
-        qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format.Format_RGBA8888)
-    else:
-        qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format.Format_RGB888)
-
-    return qimage
