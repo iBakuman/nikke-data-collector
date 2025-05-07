@@ -36,20 +36,18 @@ from collector.tournament_promotion_collector import PromotionDataCollector
 from collector.window_capturer import WindowCapturer
 from collector.window_manager import WindowManager, WindowNotFoundException
 from components.path_selector import PathSelector
-from config_manager import ConfigManager
+from config_manager import AppConfigManager
 from repository import CharacterDAO
 from ui.designer.main import Ui_MainWindow
 from ui.time_warning_dialog import TimeWarningDialog
 
+APP_CONFIG = AppConfigManager()
 # Initialize logging with platform-specific log directory
-log_dir = ConfigManager.get_log_dir()
-log_file = os.path.join(log_dir, "nikke_data_collector.log")
+log_file = os.path.join(APP_CONFIG.log_dir, "nikke_data_collector.log")
 logger = configure_logging(log_file=log_file, include_file_info=True)
-logger.info("Starting NIKKE Arena application")
-
 
 class MainWindow(QMainWindow):
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -66,9 +64,6 @@ class MainWindow(QMainWindow):
                 self.setWindowIcon(QIcon(str(icon_path)))
         except Exception as e:
             logger.error(f"Failed to set application icon: {e}")
-
-        # Initialize config manager
-        self.config_manager = config_manager
 
         # Apply saved configuration
         self._apply_saved_config()
@@ -288,7 +283,7 @@ class MainWindow(QMainWindow):
             mouse_controller = MouseController(self.window_manager, delay_manager=delay_manager)
 
             # Get cache directory
-            cache_dir = ConfigManager.get_cache_dir()
+            cache_dir = APP_CONFIG.cache_dir
             logger.info(f"Using cache directory: {cache_dir}")
 
             if collection_type == 'players':
@@ -455,11 +450,10 @@ class App:
         self.app.parent_app = self
         # set_app_theme(self.app)
         # Load translations based on system locale or saved preference
-        self.config_manager = ConfigManager()
         self.translator = QTranslator()
 
         # Get language preference from config, or use system locale as default
-        saved_language = self.config_manager.get("app_language", "")
+        saved_language = APP_CONFIG.get("app_language", "")
         if saved_language:
             current_locale = QLocale(saved_language)
         else:
@@ -474,6 +468,7 @@ class App:
         try:
             # Import the translation file loading function from ui.asset
             from ui.asset import get_translation_file
+
             # Try loading the translation file for the current locale
             translation_path = get_translation_file(lang_name)
             # Try loading the translation file

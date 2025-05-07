@@ -1,6 +1,6 @@
 from PIL import Image
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap, QImage, QShortcut, QKeySequence
+from PySide6.QtGui import QImage, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QHBoxLayout,
                                QLabel, QLineEdit, QMessageBox, QPushButton,
                                QVBoxLayout, QWidget)
