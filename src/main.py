@@ -42,9 +42,9 @@ from ui.designer.main import Ui_MainWindow
 from ui.time_warning_dialog import TimeWarningDialog
 
 APP_CONFIG = AppConfigManager()
-# Initialize logging with platform-specific log directory
 log_file = os.path.join(APP_CONFIG.log_dir, "nikke_data_collector.log")
 logger = configure_logging(log_file=log_file, include_file_info=True)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -74,10 +74,8 @@ class MainWindow(QMainWindow):
         self.ui.languageComboBox.currentIndexChanged.connect(self._on_language_changed)
         self.ui.collectRadioBtn.toggled.connect(self._show_collect_data_page)
         self.ui.toolsRadioBtn.toggled.connect(self._show_tools_page)
-
         # Set up About menu
         self._setup_about_menu()
-
         # Clear focus from all widgets
         self.setFocus()
 
@@ -85,44 +83,45 @@ class MainWindow(QMainWindow):
         if checked:
             self.ui.pagesWidget.setCurrentIndex(0)
 
-    def  _show_tools_page(self, checked: bool):
+    def _show_tools_page(self, checked: bool):
         if checked:
             self.ui.pagesWidget.setCurrentIndex(1)
 
     def _apply_saved_config(self):
         """Apply saved configuration to UI elements"""
         # Set delay values from config
-        min_delay = self.config_manager.get("delay.min", 0.5)
-        max_delay = self.config_manager.get("delay.max", 2.0)
+        min_delay = APP_CONFIG.get("delay.min", 0.5)
+        max_delay = APP_CONFIG.get("delay.max", 2.0)
         self.ui.delayMinSpin.setValue(min_delay)
         self.ui.delayMaxSpin.setValue(max_delay)
 
         # Set last save directory if it exists
-        last_save_dir = self.config_manager.get("last_save_dir", "")
+        last_save_dir = APP_CONFIG.get("last_save_dir", "")
         if last_save_dir and os.path.exists(last_save_dir):
             self.path_selector.set_path(last_save_dir)
 
         # Set language selection based on config
-        saved_language = self.config_manager.get("app_language", "")
+        saved_language = APP_CONFIG.get("app_language", "")
         if saved_language.startswith("zh"):
             self.ui.languageComboBox.setCurrentIndex(1)  # Chinese
         else:
             self.ui.languageComboBox.setCurrentIndex(0)  # English
 
-    def _on_path_changed(self, path):
+    @staticmethod
+    def _on_path_changed(path):
         """Save the selected path when it changes"""
-        self.config_manager.set("last_save_dir", path)
-        self.config_manager.save_config()
+        APP_CONFIG.set("last_save_dir", path)
+        APP_CONFIG.save_config()
 
-    def _on_language_changed(self,index):
+    def _on_language_changed(self, index):
         """Handle language change from dropdown"""
         # Map index to language code
         if index == 1:  # Chinese
             language_code = "zh_CN"
         else:  # Default to English
             language_code = "en_US"
-        self.config_manager.set("app_language", language_code)
-        self.config_manager.save_config()
+        APP_CONFIG.set("app_language", language_code)
+        APP_CONFIG.save_config()
         # Show notification that restart is required
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Information)
@@ -142,7 +141,8 @@ class MainWindow(QMainWindow):
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
 
-    def show_message(self, title, message, icon: Union[QMessageBox.Icon, int] = QMessageBox.Icon.Information, enable_copy=False):
+    def show_message(self, title, message, icon: Union[QMessageBox.Icon, int] = QMessageBox.Icon.Information,
+                     enable_copy=False):
         if not enable_copy:
             # Standard message box for normal messages
             msg = QMessageBox(self)
@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
         # Show warning for long-running tasks if needed
         if collection_type == 'players' or (collection_type == 'promotion' and stage == TournamentStage.STAGE_64_32):
             # Check if user has opted not to show the warning
-            show_warning = self.config_manager.get("show_time_warning", True)
+            show_warning = APP_CONFIG.get("show_time_warning", True)
 
             if show_warning:
                 warning_dialog = TimeWarningDialog(self)
@@ -244,8 +244,8 @@ class MainWindow(QMainWindow):
 
                 # Save user preference if they checked "Don't show again"
                 if warning_dialog.should_not_show_again():
-                    self.config_manager.set("show_time_warning", False)
-                    self.config_manager.save_config()
+                    APP_CONFIG.set("show_time_warning", False)
+                    APP_CONFIG.save_config()
 
         # Disable UI elements during processing
         self.ui.startBtn.setEnabled(False)
@@ -263,9 +263,9 @@ class MainWindow(QMainWindow):
                 self.show_message(self.tr("Error"), self.tr("Delay min is greater than or equal to delay max"),
                                   QMessageBox.Icon.Critical)
                 return
-            self.config_manager.set("delay.min", delay_min)
-            self.config_manager.set("delay.max", delay_max)
-            self.config_manager.save_config()
+            APP_CONFIG.set("delay.min", delay_min)
+            APP_CONFIG.set("delay.max", delay_max)
+            APP_CONFIG.save_config()
 
             # Initialize window manager - this might throw an exception if NIKKE isn't running
             try:
@@ -287,7 +287,7 @@ class MainWindow(QMainWindow):
             logger.info(f"Using cache directory: {cache_dir}")
 
             if collection_type == 'players':
-                character_dao =CharacterDAO()
+                character_dao = CharacterDAO()
                 # Initialize character matcher with platform-specific cache dir
                 character_matcher = CharacterMatcher(cache_dir=cache_dir, character_dao=character_dao)
                 profile_collector = ProfileCollector(controller=mouse_controller, capturer=self.window_capturer)
@@ -440,6 +440,7 @@ class MainWindow(QMainWindow):
         self.adjustSize()
         self.setFixedSize(self.minimumSize())
 
+
 class App:
     def __init__(self):
         """Initialize the main application"""
@@ -505,8 +506,7 @@ class App:
             sys.exit(1)
         keyboard.add_hotkey('ctrl+shift+alt+q', self._force_quit)
         logger.info("Global force quit shortcut registered: Ctrl+Shift+Alt+Q")
-        self.window = MainWindow(self.config_manager)
-
+        self.window = MainWindow()
 
     @staticmethod
     def _force_quit():

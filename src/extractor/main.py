@@ -13,14 +13,15 @@ import sys
 from PySide6.QtGui import QGuiApplication, Qt
 from PySide6.QtWidgets import QApplication
 
-from extractor.character_extractor_ui import CharacterExtractorApp
+from extractor.app_config import AppConfigManager
+from extractor.main_window import MainWindow
 
 QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.Floor)
 
 if __name__ == "__main__":
-    """Main entry point for the application"""
     app = QApplication(sys.argv)
-    window = CharacterExtractorApp()
+    config_manager = AppConfigManager()
+    window = MainWindow(config_manager)
     window.resize(800, 700)
     window.show()
     sys.exit(app.exec())

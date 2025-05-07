@@ -1,25 +1,24 @@
 import os
-import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QApplication, QCheckBox, QGridLayout, QGroupBox,
+from PySide6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox,
                                QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QPushButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from collector.logging_config import get_logger
 from components.image_input import ImageInputWidget
 from components.path_selector import PathSelector
+from extractor.app_config import AppConfigManager
 from extractor.character_extractor import CharacterExtractionParams, calculate_character_positions, \
     generate_character_filename, pil_to_qimage
 
 logger = get_logger(__name__)
 
-
-class CharacterExtractorApp(QWidget):
+class MainWindow(QWidget):
     """Character extraction application with GUI for selecting characters and naming them"""
 
-    def __init__(self, parent=None):
+    def __init__(self,config_manager:AppConfigManager, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Character Extractor")
 
@@ -33,6 +32,7 @@ class CharacterExtractorApp(QWidget):
             height_width_ratio=1.5
         )
         self.extracted_images = {}  # To store temporary images
+        self.config_manager = config_manager
 
         # Setup UI
         self._init_ui()
@@ -44,7 +44,8 @@ class CharacterExtractorApp(QWidget):
         # Output directory selector
         output_group = QGroupBox("Output Directory")
         output_layout = QVBoxLayout(output_group)
-        self.output_path_selector = PathSelector(default_path="")
+        self.output_path_selector = PathSelector(default_path=self.config_manager.get("output_dir"))
+        self.output_path_selector.pathChanged.connect(self._on_output_path_changed)
         output_layout.addWidget(self.output_path_selector)
         main_layout.addWidget(output_group)
 
@@ -118,6 +119,11 @@ class CharacterExtractorApp(QWidget):
         self.run_button = QPushButton("Run Extraction")
         self.run_button.clicked.connect(self._start_extraction)
         main_layout.addWidget(self.run_button)
+
+    def _on_output_path_changed(self, path):
+        self.config_manager.set("output_dir", path)
+        self.config_manager.save_config()
+
 
     def _select_all_positions(self):
         """Select all character positions"""
@@ -271,16 +277,3 @@ class CharacterExtractorApp(QWidget):
         except Exception as e:
             logger.error(f"Error saving character: {e}")
             QMessageBox.critical(self, "Error", f"Failed to save image: {str(e)}")
-
-
-def main():
-    """Main entry point for the character extractor application"""
-    app = QApplication(sys.argv)
-    window = CharacterExtractorApp()
-    window.resize(800, 700)
-    window.show()
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
