@@ -101,9 +101,7 @@ class MainWindow(QWidget):
         # Image display
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumSize(200, 300)
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        # self.image_label.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ddd;")
         preview_layout.addWidget(self.image_label)
 
         # Character name input
@@ -182,7 +180,7 @@ class MainWindow(QWidget):
 
             # Find bottom boundary by scanning for yellow line (#f7fb24)
             # Convert target color to RGB
-            target_color = (247, 250, 37)  # #f7fb24
+            target_color = (247, 251, 38)  # #f7fb24
             tolerance = 20  # Color tolerance range
             min_consecutive_pixels = 70  # Minimum consecutive matching pixels required
 
@@ -215,6 +213,8 @@ class MainWindow(QWidget):
                 raise ValueError("No yellow boundary line detected")
             else:
                 logger.info(f"Detected bottom boundary at y={bottom_boundary}")
+
+            bottom_boundary -= 94
 
             # Calculate top boundary position
             top_boundary = bottom_boundary - character_height
