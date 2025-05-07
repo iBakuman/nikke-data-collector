@@ -1,39 +1,21 @@
-import io
-
 from PIL import Image
-from PySide6.QtCore import QBuffer, QEvent, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap, QImage, QShortcut, QKeySequence
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QHBoxLayout,
                                QLabel, QLineEdit, QMessageBox, QPushButton,
-                               QScrollArea, QVBoxLayout, QWidget)
-
-from extractor.character_extractor import pil_to_qimage
+                               QVBoxLayout, QWidget)
 
 
-class SimplePreviewDialog(QDialog):
+class PreviewDialog(QDialog):
     """Simple image preview dialog without complex processing"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Image Preview")
-        self.resize(800, 600)
-
-        # Create layout
         layout = QVBoxLayout(self)
-
-        # Create scroll area
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
-        # Create label for image display
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        scroll_area.setWidget(self.image_label)
-
-        # Add scroll area to layout
-        layout.addWidget(scroll_area)
-
-        # Add close button
+        layout.addWidget(self.image_label)
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.close)
         layout.addWidget(close_button)
@@ -41,11 +23,8 @@ class SimplePreviewDialog(QDialog):
     def set_image(self, pixmap):
         """Set the image to display"""
         if pixmap and not pixmap.isNull():
+            # Set the pixmap to the label
             self.image_label.setPixmap(pixmap)
-            # Adjust window size based on image dimensions
-            img_width = pixmap.width()
-            img_height = pixmap.height()
-            self.resize(min(img_width + 50, 1200), min(img_height + 50, 800))
         else:
             self.image_label.setText("No image to display")
 
@@ -57,11 +36,12 @@ class ImageInputWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._image = None
+        self._image = QImage()
         self._setup_ui()
+        shortcut = QShortcut(QKeySequence("Ctrl+V"), self)
+        shortcut.activated.connect(self._on_paste)
 
     def _setup_ui(self):
-        """Setup the widget UI components"""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -109,29 +89,12 @@ class ImageInputWidget(QWidget):
             return
 
         try:
-            # Create preview dialog
-            dialog = SimplePreviewDialog(self)
-
-            # Convert image and set it
-            q_image = pil_to_qimage(self._image)
-            pixmap = QPixmap.fromImage(q_image)
+            dialog = PreviewDialog(self)
+            pixmap = QPixmap.fromImage(self._image)
             dialog.set_image(pixmap)
-
-            # Show dialog
-            dialog.exec()
+            dialog.show()
         except Exception as e:
             QMessageBox.warning(self, "Warning", f"Could not show preview: {str(e)}")
-
-    def eventFilter(self, obj, event):
-        """Filter events to capture keyboard shortcuts"""
-        # Handle Ctrl+V keyboard shortcut
-        if isinstance(event, QKeyEvent):
-            if (event.type() == QEvent.Type.KeyPress and
-                    event.key() == Qt.Key.Key_V and
-                    (event.modifiers() & Qt.KeyboardModifier.ControlModifier)):
-                self._on_paste()
-                return True
-        return super().eventFilter(obj, event)
 
     def _on_browse(self):
         """Open file selection dialog when browse button is clicked"""
@@ -146,6 +109,8 @@ class ImageInputWidget(QWidget):
             try:
                 # Load the image
                 image = Image.open(file_path)
+                data = image.tobytes("RGBA")
+                QImage.fromData()
                 self._set_image(image, file_path)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load image: {str(e)}")
@@ -159,38 +124,22 @@ class ImageInputWidget(QWidget):
             # Get image from clipboard
             q_image = clipboard.image()
             if not q_image.isNull():
-                try:
-                    # Convert QImage to PIL Image directly
-                    buffer = QBuffer()
-                    buffer.open(QBuffer.OpenModeFlag.ReadWrite)
-                    q_image.save(buffer, "PNG")
-                    buffer.seek(0)
-                    pil_image = Image.open(io.BytesIO(buffer.data().data()))
-                    self._set_image(pil_image, "[Pasted from clipboard]")
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Failed to process clipboard image: {str(e)}")
+                self._set_image(q_image, "[Pasted from clipboard]")
             else:
                 QMessageBox.warning(self, "Warning", "Clipboard contains an invalid image")
         else:
             QMessageBox.warning(self, "Warning", "No image found in clipboard")
 
-    def _set_image(self, image, source_path=""):
+    def _set_image(self, image: QImage, source_path: str=""):
         """Set the image and update the UI"""
         self._image = image
 
         # Update the UI
         if image:
             # Update status label
-            width, height = image.size
-            self.status_label.setText(f"Image: {width}x{height} px")
-
-            # Enable preview button
+            self.status_label.setText(f"Image: {image.width()}x{image.height()} px")
             self.preview_btn.setEnabled(True)
-
-            # Update path field
             self.path_field.setText(source_path)
-
-            # Emit signal
             self.imageChanged.emit(image)
         else:
             self.status_label.setText("No image selected")
