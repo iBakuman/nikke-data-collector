@@ -1,19 +1,22 @@
 import os
 
-from PIL.ImageQt import fromqimage, ImageQt
+import numpy as np
+from PIL.ImageQt import ImageQt, fromqimage
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox,
-                               QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-                               QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox, QHBoxLayout,
+                               QLabel, QLineEdit, QMessageBox, QPushButton,
+                               QSizePolicy, QVBoxLayout, QWidget)
 
 from collector.logging_config import get_logger
-from collector.ui_def import STANDARD_CHARACTER_HEIGHT, STANDARD_CHARACTER_WIDTH
+from collector.ui_def import (STANDARD_CHARACTER_HEIGHT,
+                              STANDARD_CHARACTER_WIDTH)
 from components.image_input import ImageInputWidget
 from components.path_selector import PathSelector
 from extractor.app_config import AppConfigManager
-from extractor.util import CharacterExtractionParams, calculate_character_positions, \
-    generate_character_filename
+from extractor.util import (CharacterExtractionParams,
+                            calculate_character_positions,
+                            generate_character_filename)
 
 logger = get_logger(__name__)
 
@@ -175,8 +178,41 @@ class MainWindow(QWidget):
             character_height = int(self.extraction_params.character_width *
                                    self.extraction_params.height_width_ratio)
 
-            # Use image bottom as the bottom boundary
-            bottom_boundary = image.height
+            # Find bottom boundary by scanning for yellow line (#f7fb24)
+            # Convert target color to RGB
+            target_color = (247, 250, 37)  # #f7fb24
+            tolerance = 20  # Color tolerance range
+            min_consecutive_pixels = 80  # Minimum consecutive matching pixels required
+
+            # Convert image to numpy array for faster processing
+            img_array = np.array(image)
+            bottom_boundary = None
+
+            # Start scanning from bottom up
+            for y in range(image.height -1, image.height//2, -1):
+                consecutive_count = 0
+                for x in range(image.width//9):
+                    pixel_color = img_array[y, x, :3]  # Get RGB values
+
+                    # Check if pixel color is within tolerance range of target color
+                    if (abs(pixel_color[0] - target_color[0]) <= tolerance and
+                            abs(pixel_color[1] - target_color[1]) <= tolerance and
+                            abs(pixel_color[2] - target_color[2]) <= tolerance):
+                        consecutive_count += 1
+                        if consecutive_count >= min_consecutive_pixels:
+                            bottom_boundary = y
+                            break
+                    else:
+                        consecutive_count = 0
+
+                if bottom_boundary is not None:
+                    break
+
+            # Fallback to image height if no boundary detected
+            if bottom_boundary is None:
+                raise ValueError("No yellow boundary line detected")
+            else:
+                logger.info(f"Detected bottom boundary at y={bottom_boundary}")
 
             # Calculate top boundary position
             top_boundary = bottom_boundary - character_height
