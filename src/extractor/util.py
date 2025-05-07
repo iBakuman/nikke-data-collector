@@ -2,9 +2,7 @@ import glob
 import os
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
-
-from PIL import Image
+from typing import List, Tuple
 
 from collector.logging_config import get_logger
 
@@ -18,80 +16,6 @@ class CharacterExtractionParams:
     character_width: int
     character_spacing: int
     height_width_ratio: float
-
-
-def extract_characters(
-        input_image_path: str,
-        output_folder: str,
-        extraction_params: CharacterExtractionParams,
-        character_map: Dict[int, str]
-) -> List[str]:
-    """
-    Extract character images from a long image with equal boundaries and spacing.
-    Only extracts characters specified in the character_map.
-
-    Args:
-        input_image_path: Path to the input image
-        output_folder: Directory to save extracted images
-        extraction_params: Extraction parameters
-        character_map: Dictionary mapping character positions (1-12) to character names
-
-    Returns:
-        List of paths to the extracted character images
-    """
-    # Create output directory if needed
-    os.makedirs(output_folder, exist_ok=True)
-
-    # Open the image
-    try:
-        image = Image.open(input_image_path)
-    except Exception as e:
-        logger.error(f"Failed to open image {input_image_path}: {e}")
-        return []
-
-    # Calculate character positions
-    positions = calculate_character_positions(
-        extraction_params.boundary_width,
-        extraction_params.character_width,
-        extraction_params.character_spacing,
-        12  # Fixed at 12 characters
-    )
-
-    # Calculate character height based on ratio
-    character_height = int(extraction_params.character_width * extraction_params.height_width_ratio)
-
-    # Use image bottom as the bottom boundary
-    bottom_boundary = image.height
-
-    # Calculate top boundary position
-    top_boundary = bottom_boundary - character_height
-
-    # Extract each character
-    output_paths = []
-    for position, (start_x, end_x) in enumerate(positions, 1):
-        # Skip positions not in the character map
-        if position not in character_map:
-            continue
-
-        character_name = character_map[position]
-
-        try:
-            # Crop the character image
-            character_image = image.crop((start_x, top_boundary, end_x, bottom_boundary))
-
-            # Generate output path with proper naming convention
-            output_path = generate_character_filename(output_folder, character_name)
-
-            # Save the character image
-            character_image.save(output_path)
-            logger.info(f"Saved character {position} ({character_name}) to {output_path}")
-
-            output_paths.append(output_path)
-        except Exception as e:
-            logger.error(f"Failed to extract character {position} ({character_name}): {e}")
-
-    return output_paths
-
 
 def calculate_character_positions(
         boundary_width: int,

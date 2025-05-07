@@ -13,6 +13,8 @@ import sys
 from PySide6.QtGui import QGuiApplication, Qt
 from PySide6.QtWidgets import QApplication
 
+from collector.ui_def import STANDARD_WINDOW_WIDTH
+from collector.window_manager import WindowManager
 from extractor.app_config import AppConfigManager
 from extractor.main_window import MainWindow
 
@@ -21,6 +23,8 @@ QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundin
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     config_manager = AppConfigManager()
+    window_manager = WindowManager("nikke.exe")
+    window_manager.resize_to_standard(STANDARD_WINDOW_WIDTH)
     window = MainWindow(config_manager)
     window.resize(800, 700)
     window.show()

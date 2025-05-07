@@ -12,7 +12,7 @@ from collector.ui_def import STANDARD_CHARACTER_HEIGHT, STANDARD_CHARACTER_WIDTH
 from components.image_input import ImageInputWidget
 from components.path_selector import PathSelector
 from extractor.app_config import AppConfigManager
-from extractor.character_extractor import CharacterExtractionParams, calculate_character_positions, \
+from extractor.util import CharacterExtractionParams, calculate_character_positions, \
     generate_character_filename
 
 logger = get_logger(__name__)
@@ -218,6 +218,7 @@ class MainWindow(QWidget):
             # We're done
             self.status_label.setText("All characters processed!")
             self.image_label.clear()
+            self.name_input.clear()
             self.name_input.setEnabled(False)
             self.run_button.setEnabled(True)
             self._set_ui_elements_enabled(True)
