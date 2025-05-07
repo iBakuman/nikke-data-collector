@@ -20,12 +20,15 @@ from .. import CharacterDAO
 
 logger = get_logger(__name__)
 
+
 class CharacterImporter(DataImporter[Character]):
     def __init__(self, character_dao: CharacterDAO):
         self.character_dao = character_dao
 
     """Importer for Character data from files and directories."""
-    def import_from_directory(self, directory_path: str, pattern=r"^(\d{3})_([^_]+)_[a-z]\.(?:png|jpg|jpeg)$") -> List[Character]:
+
+    def import_from_directory(self, directory_path: str, pattern=r"^(\d{3})_([^_]+)_[a-z]\.(?:png|jpg|jpeg)$") -> \
+            Optional[List[Character]]:
         for filename in os.listdir(directory_path):
             if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                 continue
@@ -45,7 +48,7 @@ class CharacterImporter(DataImporter[Character]):
             # Check if character exists, if not create it
             char = self.character_dao.get_character(char_id)
             if not char:
-                self.character_dao.add_character(char_id,chinese_name=char_name)
+                self.character_dao.add_character(char_id, chinese_name=char_name)
 
             # Add the image
             image_path = os.path.join(directory_path, filename)
@@ -53,7 +56,6 @@ class CharacterImporter(DataImporter[Character]):
             if not success:
                 logger.error(f"Failed to add image {image_path} to character {char_id}")
         return None
-
 
     def import_from_file(self, file_path: str) -> List[Character]:
         """Import character data from a file.

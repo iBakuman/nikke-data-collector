@@ -10,6 +10,7 @@ This script launches the Character Extractor UI that allows users to:
 """
 import sys
 
+import qdarktheme
 from PySide6.QtGui import QGuiApplication, Qt
 from PySide6.QtWidgets import QApplication
 
@@ -22,10 +23,11 @@ QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundin
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    qdarktheme.setup_theme('dark')
     config_manager = AppConfigManager()
     window_manager = WindowManager("nikke.exe")
     window_manager.resize_to_standard(STANDARD_WINDOW_WIDTH)
     window = MainWindow(config_manager)
-    window.resize(800, 700)
+    window.resize(600, 700)
     window.show()
     sys.exit(app.exec())

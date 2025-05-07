@@ -43,6 +43,8 @@ class MainWindow(QWidget):
         # Setup UI
         self._init_ui()
 
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+
     def _init_ui(self):
         """Initialize the UI components"""
         main_layout = QVBoxLayout(self)
@@ -101,7 +103,7 @@ class MainWindow(QWidget):
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setMinimumSize(200, 300)
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.image_label.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ddd;")
+        # self.image_label.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ddd;")
         preview_layout.addWidget(self.image_label)
 
         # Character name input
@@ -182,7 +184,7 @@ class MainWindow(QWidget):
             # Convert target color to RGB
             target_color = (247, 250, 37)  # #f7fb24
             tolerance = 20  # Color tolerance range
-            min_consecutive_pixels = 80  # Minimum consecutive matching pixels required
+            min_consecutive_pixels = 70  # Minimum consecutive matching pixels required
 
             # Convert image to numpy array for faster processing
             img_array = np.array(image)
@@ -195,9 +197,9 @@ class MainWindow(QWidget):
                     pixel_color = img_array[y, x, :3]  # Get RGB values
 
                     # Check if pixel color is within tolerance range of target color
-                    if (abs(pixel_color[0] - target_color[0]) <= tolerance and
-                            abs(pixel_color[1] - target_color[1]) <= tolerance and
-                            abs(pixel_color[2] - target_color[2]) <= tolerance):
+                    if (abs(int(pixel_color[0]) - int(target_color[0])) <= tolerance and
+                            abs(int(pixel_color[1]) - int(target_color[1])) <= tolerance and
+                            abs(int(pixel_color[2]) - int(target_color[2])) <= tolerance):
                         consecutive_count += 1
                         if consecutive_count >= min_consecutive_pixels:
                             bottom_boundary = y
