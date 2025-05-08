@@ -11,11 +11,9 @@ from PySide6.QtWidgets import QWidget
 
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
-from picker.overlay.capture_strategies import (CaptureState, CaptureStrategy,
-                                               ImageElementCaptureStrategy,
-                                               PixelColorCaptureStrategy,
-                                               StrategyInfo)
 from picker.overlay.overlay_widget import OverlayWidget
+from picker.overlay.selector import (ElementSelector,
+                                     StrategyInfo, PixelColorSelector, ImageSelector)
 from picker.overlay.visual_elements import VisualElement
 
 logger = get_logger(__name__)
@@ -25,9 +23,9 @@ class OverlayManager(QObject):
     """Manager for coordinating overlay widget and capture strategies."""
     
     # Signals
-    capture_started = Signal(str)  # Strategy type
-    capture_completed = Signal(str, object)  # Strategy type, result
-    capture_cancelled = Signal()
+    selection_started = Signal(str)  # Strategy type
+    selection_completed = Signal(str, object)  # Strategy type, result
+    selection_cancelled = Signal()
     
     def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
         """Initialize the overlay manager.
@@ -39,24 +37,24 @@ class OverlayManager(QObject):
         super().__init__()
         self.overlay = overlay
         self.window_capturer = window_capturer
-        self.current_strategy: Optional[CaptureStrategy] = None
+        self.current_strategy: Optional[ElementSelector] = None
         self.current_strategy_type_id: Optional[str] = None
         self.control_panel: Optional[QWidget] = None
         
         # Strategy registry 
-        self.strategy_registry: Dict[str, Type[CaptureStrategy]] = {}
+        self.strategy_registry: Dict[str, Type[ElementSelector]] = {}
         
         # Register built-in strategies
         self._register_builtin_strategies()
     
     def _register_builtin_strategies(self) -> None:
         """Register the built-in capture strategies."""
-        self.register_strategy(PixelColorCaptureStrategy)
-        self.register_strategy(ImageElementCaptureStrategy)
+        self.register_strategy(PixelColorSelector)
+        self.register_strategy(ImageSelector)
         
         logger.info(f"Registered {len(self.strategy_registry)} built-in capture strategies")
     
-    def register_strategy(self, strategy_class: Type[CaptureStrategy]) -> None:
+    def register_strategy(self, strategy_class: Type[ElementSelector]) -> None:
         """Register a capture strategy.
         
         Args:
@@ -81,22 +79,13 @@ class OverlayManager(QObject):
         """
         return [cls.get_strategy_info() for cls in self.strategy_registry.values()]
     
-    def start_capture(self, strategy_type_id: str) -> None:
-        """Start capture process with specified strategy type.
-        
-        Args:
-            strategy_type_id: Type ID of capture strategy
-            
-        Raises:
-            ValueError: If strategy type is unknown
-        """
-        # Check if strategy type is valid
+    def start_selection(self, strategy_type_id: str) -> None:
         if strategy_type_id not in self.strategy_registry:
             raise ValueError(f"Unknown capture strategy type: {strategy_type_id}")
         
         # If already capturing, cancel current capture
         if self.current_strategy:
-            self.current_strategy.cancel_capture()
+            self.current_strategy.cancel_selection()
             self.current_strategy = None
             self.current_strategy_type_id = None
             
@@ -112,34 +101,34 @@ class OverlayManager(QObject):
         self.current_strategy_type_id = strategy_type_id
         
         # Connect to strategy signals
-        self.current_strategy.capture_completed.connect(self._handle_capture_completed)
-        self.current_strategy.capture_cancelled.connect(self._handle_capture_cancelled)
+        self.current_strategy.selection_completed.connect(self._handle_selection_completed)
+        self.current_strategy.selection_cancelled.connect(self._handle_selection_cancelled)
         
         # Emit capture started signal
-        self.capture_started.emit(strategy_type_id)
+        self.selection_started.emit(strategy_type_id)
         
         # Start capture and get control panel
-        self.control_panel = self.current_strategy.start_capture()
+        self.control_panel = self.current_strategy.start_selection()
         
         # Show control panel
         if self.control_panel:
             self.control_panel.show()
     
-    def _handle_capture_completed(self, result: Any) -> None:
+    def _handle_selection_completed(self, result: Any) -> None:
         """Handle completion of the capture process.
         
         Args:
             result: Capture result data
         """
         if self.current_strategy_type_id:
-            self.capture_completed.emit(self.current_strategy_type_id, result)
+            self.selection_completed.emit(self.current_strategy_type_id, result)
             
         # Clean up
         self._cleanup_current_capture()
     
-    def _handle_capture_cancelled(self) -> None:
+    def _handle_selection_cancelled(self) -> None:
         """Handle cancellation of the capture process."""
-        self.capture_cancelled.emit()
+        self.selection_cancelled.emit()
         
         # Clean up
         self._cleanup_current_capture()
@@ -148,8 +137,8 @@ class OverlayManager(QObject):
         """Clean up resources from current capture."""
         # Disconnect signals
         if self.current_strategy:
-            self.current_strategy.capture_completed.disconnect(self._handle_capture_completed)
-            self.current_strategy.capture_cancelled.disconnect(self._handle_capture_cancelled)
+            self.current_strategy.selection_completed.disconnect(self._handle_selection_completed)
+            self.current_strategy.selection_cancelled.disconnect(self._handle_selection_cancelled)
             
         # Close control panel
         if self.control_panel:
@@ -160,10 +149,10 @@ class OverlayManager(QObject):
         self.current_strategy = None
         self.current_strategy_type_id = None
     
-    def cancel_current_capture(self) -> None:
+    def cancel_current_selection(self) -> None:
         """Cancel the current capture process if active."""
         if self.current_strategy:
-            self.current_strategy.cancel_capture()
+            self.current_strategy.cancel_selection()
     
     def load_elements(self, config_list: List[Dict[str, Any]]) -> List[VisualElement]:
         """Load visual elements from configuration.

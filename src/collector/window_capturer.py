@@ -18,6 +18,14 @@ class CaptureResult:
     screenshot: ScreenShot
     region: Region
 
+    @property
+    def width(self)->int:
+        return self.region.width
+
+    @property
+    def height(self)->int:
+        return self.region.height
+
     def save(self, filename: str):
         os.makedirs(os.path.dirname(filename) if os.path.dirname(filename) else '.', exist_ok=True)
         mss.tools.to_png(self.screenshot.rgb, self.screenshot.size, output=filename)
@@ -41,7 +49,6 @@ class WindowCapturer:
                 "width": rect.width,
                 "height": rect.height,
             })
-            # FIXME
             result = CaptureResult(screenshot=screenshot, region=Region(0, 0, rect.width, rect.height))
             return result
 

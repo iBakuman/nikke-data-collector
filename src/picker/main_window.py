@@ -99,8 +99,8 @@ class MainWindow(QMainWindow):
         self.overlay_widget = OverlayWidget(window_capturer.window_manager)
         self.overlay_manager = OverlayManager(self.overlay_widget, self.window_capturer)
         # Connect overlay signals
-        self.overlay_manager.capture_completed.connect(self._on_capture_completed)
-        self.overlay_manager.capture_cancelled.connect(self._on_capture_cancelled)
+        self.overlay_manager.selection_completed.connect(self._on_selection_completed)
+        self.overlay_manager.selection_cancelled.connect(self._on_selection_cancelled)
         # Track current element creation
         self.current_element_name: Optional[str] = None
         self.current_page_id: Optional[str] = None
@@ -352,24 +352,13 @@ class MainWindow(QMainWindow):
         self.current_page_id = page_id
         self.status_bar.showMessage(f"Capturing {strategy_info.display_name}...")
         try:
-            result = self.overlay_manager.start_capture(strategy_info.type_id)
-            if result is None:
-                # Capture was cancelled
-                self.status_bar.showMessage("Element capture cancelled", 3000)
-                self.current_element_name = None
-                self.current_page_id = None
+            self.overlay_manager.start_selection(strategy_info.type_id)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to start capture: {e}")
             self.current_element_name = None
             self.current_page_id = None
 
-    def _on_capture_completed(self, strategy_type: str, capture_data: Any):
-        """Handle element capture completion.
-
-        Args:
-            strategy_type: Type of the capture strategy
-            capture_data: Captured element data
-        """
+    def _on_selection_completed(self, strategy_type: str, capture_data: Any):
         # Check if we have a valid capture context
         if not self.current_element_name or not self.current_page_id:
             logger.warning("Received capture completion but no active element creation context")
@@ -438,7 +427,7 @@ class MainWindow(QMainWindow):
         self.current_element_name = None
         self.current_page_id = None
 
-    def _on_capture_cancelled(self):
+    def _on_selection_cancelled(self):
         """Handle element capture cancellation."""
         self.status_bar.showMessage("Element capture cancelled", 3000)
         self.current_element_name = None
