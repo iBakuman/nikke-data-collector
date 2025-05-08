@@ -358,14 +358,14 @@ class MainWindow(QMainWindow):
             self.current_element_name = None
             self.current_page_id = None
 
-    def _on_selection_completed(self, strategy_type: str, capture_data: Any):
+    def _on_selection_completed(self, strategy_type: str, data: Any):
         # Check if we have a valid capture context
         if not self.current_element_name or not self.current_page_id:
             logger.warning("Received capture completion but no active element creation context")
             return
 
         # Check if capture data is valid
-        if not capture_data:
+        if not data:
             QMessageBox.critical(self, "Error", "No capture data received")
             self.current_element_name = None
             self.current_page_id = None
@@ -377,29 +377,29 @@ class MainWindow(QMainWindow):
 
             if strategy_type == "pixel_color":
                 # Check for required data
-                if "points_colors" not in capture_data:
+                if "points_colors" not in data:
                     raise ValueError("Missing points_colors in capture data")
 
                 # Create pixel color element
                 element = PixelColorElement(
                     name=self.current_element_name,
-                    points_colors=capture_data["points_colors"],
-                    match_all=capture_data.get("match_all", True)
+                    points_colors=data["points_colors"],
+                    match_all=data.get("match_all", True)
                 )
 
             elif strategy_type == "image_element":
                 # Check for required data
-                if "region" not in capture_data:
+                if "region" not in data:
                     raise ValueError("Missing region in capture data")
-                if "image" not in capture_data:
+                if "image" not in data:
                     raise ValueError("Missing image in capture data")
 
                 # Create image element
                 element = ImageElement(
                     name=self.current_element_name,
-                    region=capture_data["region"],
-                    target_image=capture_data["image"],
-                    threshold=capture_data.get("threshold", 0.8)
+                    region=data["region"],
+                    target_image=data["image"],
+                    threshold=data.get("threshold", 0.8)
                 )
             else:
                 raise ValueError(f"Unsupported strategy type: {strategy_type}")
