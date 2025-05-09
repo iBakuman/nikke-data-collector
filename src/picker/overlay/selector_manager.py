@@ -67,6 +67,9 @@ class SelectorManager(QObject):
         
         if strategy_info.type_id in self.strategy_registry:
             raise ValueError(f"Strategy type '{strategy_info.type_id}' already registered")
+
+        if self.strategy_registry[strategy_info.type_id]:
+            raise ValueError(f"Strategy type '{strategy_info.type_id}' already registered")
         
         self.strategy_registry[strategy_info.type_id] = strategy_class
         logger.debug(f"Registered strategy: {strategy_info.display_name} ({strategy_info.type_id})")

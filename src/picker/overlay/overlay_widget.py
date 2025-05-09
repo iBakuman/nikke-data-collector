@@ -4,7 +4,8 @@ Overlay widget for capturing user interactions.
 This module provides a transparent overlay widget that captures
 mouse events and displays visual elements for user interaction.
 """
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
+import uuid
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal, QTimer
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QCloseEvent, QGuiApplication
@@ -45,8 +46,7 @@ class OverlayWidget(QWidget):
         self.window_manager = window_manager
         self.setMouseTracking(True)  # Enable mouse tracking
         # Visual elements to display
-        self._visual_elements: List[VisualElement] = []
-
+        self._visual_elements: Dict[str, VisualElement] = {}
         # Mouse tracking state
         self._is_dragging = False
         self._drag_start = QPoint()
@@ -56,7 +56,6 @@ class OverlayWidget(QWidget):
         self.timer.start()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        # TODO
         self.timer.disconnect()
         super().closeEvent(event)
 
@@ -91,13 +90,10 @@ class OverlayWidget(QWidget):
         self.timer.stop()
         super().hide()
 
-    def add_visual_element(self, element: VisualElement) -> None:
-        """Add a visual element to be displayed on the overlay.
-
-        Args:
-            element: The visual element to add
-        """
-        self._visual_elements.append(element)
+    def add_visual_element(self, element: VisualElement, key: Optional[str] = None) -> None:
+        if key is None:
+            key = str(uuid.uuid4())
+        self._visual_elements[key] = element
         self.update()
 
     def clear_visual_elements(self) -> None:
@@ -105,20 +101,10 @@ class OverlayWidget(QWidget):
         self._visual_elements.clear()
         self.update()
 
-    def get_visual_elements(self) -> List[VisualElement]:
-        """Get all current visual elements.
-
-        Returns:
-            List of current visual elements
-        """
+    def get_visual_elements(self) -> Dict[str, VisualElement]:
         return self._visual_elements.copy()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        """Handle mouse press events.
-
-        Args:
-            event: The mouse press event
-        """
         if event.button() == Qt.MouseButton.LeftButton:
             self._is_dragging = True
             self._drag_start = event.position().toPoint()
