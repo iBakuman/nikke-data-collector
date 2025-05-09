@@ -52,7 +52,7 @@ class OverlayWidget(QWidget):
         self._drag_start = QPoint()
         self.timer = QTimer()
         self.timer.setInterval(250)
-        self.timer.timeout.connect(self.update_overlay_position)
+        self.timer.timeout.connect(self._update_overlay_position)
         self.timer.start()
 
     def closeEvent(self, event: QCloseEvent) -> None:
@@ -72,7 +72,7 @@ class OverlayWidget(QWidget):
         self.timer.start()
         super().show()
 
-    def update_overlay_position(self):
+    def _update_overlay_position(self):
         current_rect = self.window_manager.rect
         if not current_rect:
             logger.warning("Could not get current Nikke window rect.")
@@ -112,11 +112,6 @@ class OverlayWidget(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """Handle mouse move events.
-
-        Args:
-            event: The mouse move event
-        """
         current_pos = event.position().toPoint()
         self.mouse_moved.emit(event)
 
@@ -153,11 +148,3 @@ class OverlayWidget(QWidget):
             element.draw(painter)
 
         super().paintEvent(event)  # Call parent's paintEvent()
-
-    def get_geometry(self) -> QRect:
-        """Get the current geometry of the overlay.
-
-        Returns:
-            Current geometry as QRect
-        """
-        return self.geometry()
