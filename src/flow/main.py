@@ -4,8 +4,8 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
                                QVBoxLayout, QWidget)
 
 # Configurable magnification factor and region size
-REGION_SIZE = 100       # Default sampled square region size in pixels
-MAGNIFICATION = 2       # Default magnification factor
+DISPLAY_SIZE = 200      # Size of the display window in pixels
+MAGNIFICATION = 4       # Default magnification factor
 CROSSHAIR_COLOR = QColor(255, 0, 0)  # Crosshair color (default: red)
 CROSSHAIR_THICKNESS = 1   # Crosshair thickness in pixels
 UPDATE_INTERVAL_MS = 30   # Update interval in milliseconds
@@ -20,15 +20,13 @@ class Magnifier(QWidget):
         # Make window transparent to mouse events so mouse can interact with applications underneath
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
-        # Initialize region size and magnification
-        self.region_size = REGION_SIZE
+        # Initialize display size and magnification
+        self.display_size = DISPLAY_SIZE  # Fixed display window size
         self.magnification = MAGNIFICATION
-        # Calculate magnified display size
-        self.display_size = self.region_size * self.magnification
 
         # Create label for magnified image
         self.image_label = QLabel(self)
-        # Fix label size to the magnified image size
+        # Fix label size to the display size
         self.image_label.setFixedSize(self.display_size, self.display_size)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -88,67 +86,68 @@ class Magnifier(QWidget):
         # Get virtual desktop information
         virtual_desktop = QGuiApplication.primaryScreen().virtualGeometry()
 
-        # Calculate the region to capture, centering it EXACTLY on the cursor
-        # This is critical for accurate crosshair positioning
-        exact_half = self.region_size / 2  # Use floating point for precision
+        # Calculate the capture size based on the magnification
+        # For higher magnification, we capture a smaller region
+        capture_size = int(self.display_size / self.magnification)
 
-        # Cursor is exactly at the center of the captured region
-        reg_x = int(cursor_pos.x() - exact_half)
-        reg_y = int(cursor_pos.y() - exact_half)
+        # Ensure we capture an odd size so the center pixel is exactly at the center
+        if capture_size % 2 == 0:
+            capture_size += 1
 
-        # Clamp capture region within screen bounds
-        if reg_x < screen_geom.x():
-            reg_x = screen_geom.x()
-        if reg_x + self.region_size > screen_geom.x() + screen_geom.width():
-            reg_x = screen_geom.x() + screen_geom.width() - self.region_size
-        if reg_y < screen_geom.y():
-            reg_y = screen_geom.y()
-        if reg_y + self.region_size > screen_geom.y() + screen_geom.height():
-            reg_y = screen_geom.y() + screen_geom.height() - self.region_size
+        # Half the capture size with exact precision
+        half_capture = capture_size / 2
 
-        # Calculate relative coordinates for screen capture
-        # For Qt's grabWindow, we need coordinates relative to the screen
-        relative_x = reg_x - screen_geom.x()
-        relative_y = reg_y - screen_geom.y()
+        # Calculate capture region coordinates, keeping cursor exactly at center
+        capture_x = int(cursor_pos.x() - half_capture)
+        capture_y = int(cursor_pos.y() - half_capture)
 
-        # Grab the specified screen region as an image
-        pixmap = screen.grabWindow(0, relative_x, relative_y, self.region_size, self.region_size)
+        # Clamp capture region to screen boundaries
+        if capture_x < screen_geom.x():
+            capture_x = screen_geom.x()
+        if capture_x + capture_size > screen_geom.x() + screen_geom.width():
+            capture_x = screen_geom.x() + screen_geom.width() - capture_size
+        if capture_y < screen_geom.y():
+            capture_y = screen_geom.y()
+        if capture_y + capture_size > screen_geom.y() + screen_geom.height():
+            capture_y = screen_geom.y() + screen_geom.height() - capture_size
 
-        # Scale the screenshot by the magnification factor
-        if self.magnification != 1:
-            scaled_pixmap = pixmap.scaled(
-                self.region_size * self.magnification,
-                self.region_size * self.magnification,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.FastTransformation
-            )
-        else:
-            scaled_pixmap = pixmap
+        # Calculate relative coordinates for the screen capture
+        rel_x = capture_x - screen_geom.x()
+        rel_y = capture_y - screen_geom.y()
 
-        # Calculate the exact center position for the crosshair
-        # This should be exactly at the center of the magnified image
-        center_x = scaled_pixmap.width() / 2
-        center_y = scaled_pixmap.height() / 2
+        # Capture the screen region
+        pixmap = screen.grabWindow(0, rel_x, rel_y, capture_size, capture_size)
 
-        # Draw crosshair on the scaled image at the exact center
-        if CROSSHAIR_THICKNESS > 0:
-            painter = QPainter(scaled_pixmap)
-            pen = QPen(CROSSHAIR_COLOR, CROSSHAIR_THICKNESS)
-            painter.setPen(pen)
+        # Scale the captured image to fill the display window
+        scaled_pixmap = pixmap.scaled(
+            self.display_size,
+            self.display_size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
 
-            # Draw horizontal and vertical lines through the exact center
-            # Convert to integers as drawLine requires integer coordinates
-            center_x_int = int(center_x)
-            center_y_int = int(center_y)
+        # Draw a crosshair at the exact center of the display
+        center_x = self.display_size / 2
+        center_y = self.display_size / 2
 
-            painter.drawLine(0, center_y_int, scaled_pixmap.width(), center_y_int)
-            painter.drawLine(center_x_int, 0, center_x_int, scaled_pixmap.height())
-            painter.end()
+        # Convert center coordinates to integers for drawing
+        center_x_int = int(center_x)
+        center_y_int = int(center_y)
 
-        # Display the magnified image in the label
+        # Create a QPainter to draw on the scaled pixmap
+        painter = QPainter(scaled_pixmap)
+        pen = QPen(CROSSHAIR_COLOR, CROSSHAIR_THICKNESS)
+        painter.setPen(pen)
+
+        # Draw horizontal and vertical lines crossing at the center
+        painter.drawLine(0, center_y_int, scaled_pixmap.width(), center_y_int)
+        painter.drawLine(center_x_int, 0, center_x_int, scaled_pixmap.height())
+        painter.end()
+
+        # Display the magnified image with crosshair
         self.image_label.setPixmap(scaled_pixmap)
 
-        # Safe window positioning to avoid covering cursor or going off-screen
+        # Position the magnifier window to avoid covering the cursor
         win_w = self.width()
         win_h = self.height()
 
@@ -174,7 +173,6 @@ class Magnifier(QWidget):
         self.move(pos_x, pos_y)
 
         # Get the color of the pixel precisely at the cursor position
-        # This is the color that will be displayed in the color patch
         pixel_color = screen.grabWindow(
             0,
             cursor_pos.x() - screen_geom.x(),
@@ -187,6 +185,8 @@ class Magnifier(QWidget):
             f"background-color: rgb({pixel_color.red()},{pixel_color.green()},{pixel_color.blue()}); border: 1px solid #000;"
         )
         self.color_text.setText(f"R:{pixel_color.red()} G:{pixel_color.green()} B:{pixel_color.blue()}")
+
+QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.Floor)
 
 if __name__ == "__main__":
     app = QApplication([])
