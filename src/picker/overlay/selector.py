@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QVBoxLayout,
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
 from domain.color import Color
-from domain.pixel_element import PixelColorPointEntity
+from domain.pixel_element import PixelColorElementEntity, PixelColorPointEntity
 from domain.regions import Point
 from picker.overlay.overlay_widget import OverlayWidget
 from picker.overlay.visual_elements import (PointElement, RectangleElement,
@@ -276,7 +276,7 @@ class PixelColorSelector(ElementSelector):
     def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
         """Initialize the pixel color selector."""
         super().__init__(overlay, window_capturer)
-        self.selected_points: List[PixelColorPointEntity] = []
+        self.selected_points: PixelColorElementEntity = PixelColorElementEntity()
         self.control_panel: Optional['PixelColorControlPanel'] = None
         # Track visual elements for easier removal
         self.point_elements: List[PointElement] = []
@@ -337,13 +337,13 @@ class PixelColorSelector(ElementSelector):
             color = Color(r, g, b)
 
             # Create pixel color element
-            pixel_element = PixelColorPointEntity.from_point_and_color(
+            pixel_color_entity = PixelColorPointEntity.from_point_and_color(
                 point=point,
                 color=color,
             )
 
             # Add to captured points
-            self.selected_points.append(pixel_element)
+            self.selected_points.add_pixel_color(pixel_color_entity)
 
             # Add visual feedback to overlay
             point_element = PointElement(x, y, QColor(r, g, b))
@@ -360,17 +360,10 @@ class PixelColorSelector(ElementSelector):
             logger.exception(f"Error capturing pixel color: {e}")
 
     def remove_point(self, index: int) -> None:
-        """Remove a selected point.
-
-        Args:
-            index: Index of the point to remove
-        """
         if 0 <= index < len(self.selected_points):
-            # Remove from the list
-            removed_point = self.selected_points.pop(index)
-            # Remove the corresponding visual element
+            self.selected_points.pop(index)
             if 0 <= index < len(self.point_elements):
-                point_element = self.point_elements.pop(index)
+                self.point_elements.pop(index)
                 self.overlay.clear_visual_elements()
 
             # Update the control panel

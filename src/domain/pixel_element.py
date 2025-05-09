@@ -68,32 +68,29 @@ class PixelColorPointEntity(JSONWizard, JSONSerializableMixin):
 class PixelColorElementEntity(JSONWizard, JSONSerializableMixin):
     class _(JSONPyWizard.Meta):
         skip_defaults = True
-
-    id: Optional[int] = None  # Primary key, None for new records
-    name: str = ""  # Element name
-
-    # Detection parameters
-    tolerance: int = 10
-    match_all: bool = True
-
-    # Collection of points and colors
+    id: Optional[int] = None
+    name: str = ""
     points: List[PixelColorPointEntity] = field(default_factory=list)
 
-    # Metadata
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    def __len__(self):
+        return len(self.points)
+
+    def pop(self, index: int)->PixelColorPointEntity:
+        return self.points.pop(index)
 
     @classmethod
-    def from_point_color(cls, point: Point, color: Color, tolerance: Optional[int] = 10)->'PixelColorElementEntity':
+    def from_point_color(cls, point: Point, color: Color)->'PixelColorElementEntity':
         return cls(
             points=[PixelColorPointEntity.from_point_and_color(point, color)],
-            tolerance=tolerance,
         )
+
+    def add_pixel_color(self, pixel_color: PixelColorPointEntity)->None:
+        self.points.append(pixel_color)
 
 
     def get_points_colors(self) -> List[tuple[Point, Color]]:
         """Get list of Point and Color pairs from stored entities.
-        
+
         Returns:
             List of (Point, Color) tuples
         """
@@ -101,7 +98,7 @@ class PixelColorElementEntity(JSONWizard, JSONSerializableMixin):
 
     def set_points_colors(self, points_colors: List[tuple[Point, Color]]) -> None:
         """Set points and colors from a list of Point and Color pairs.
-        
+
         Args:
             points_colors: List of (Point, Color) tuples
         """
