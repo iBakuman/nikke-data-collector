@@ -5,5 +5,6 @@ from tests.collector.utils import keyboard_terminable
 
 @keyboard_terminable()
 def test_championship_tournament_collector(championship_collector: ChampionshipTournamentCollector):
-    championship_collector.collect_stage(TournamentStage.STAGE_4_2)
+    for stage in [TournamentStage.STAGE_8_4, TournamentStage.STAGE_4_2, TournamentStage.STAGE_2_1]:
+        championship_collector.collect_stage(stage)
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Set, Tuple, Union
 
 from .character_dao import CharacterDAO
-from .conn import get_db_connection, get_db_path
+from .connection import get_db_connection
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -151,34 +151,18 @@ def migrate_database(db_path: Optional[Path] = None):
     Returns:
         Tuple of (number of successful migrations, number of failed migrations)
     """
-    if db_path is None:
-        db_path = get_db_path()
-
     # Open the database connection
-    conn = get_db_connection(db_path)
-
-    try:
+    with get_db_connection(db_path) as conn:
         # Ensure migrations table exists
         init_migrations_table(conn)
 
         # Get already applied migrations
         applied = get_applied_migrations(conn)
-
-        # Find migrations in package resources
-        try:
-            migrations_dir = importlib.resources.files('collector.repository.data.migrations')
-            migrations = load_migrations_from_directory(migrations_dir)
-        except (ModuleNotFoundError, ImportError, ValueError) as e:
-            logger.warning(f"Could not load migrations from package: {e}")
-            # Fallback to local directory
-            migrations_dir = Path(__file__).parent / 'data' / 'migrations'
-            os.makedirs(migrations_dir, exist_ok=True)
-            migrations = load_migrations_from_directory(migrations_dir)
-
+        migrations_dir = importlib.resources.files('repository.data.migrations')
+        migrations = load_migrations_from_directory(migrations_dir)
         # Apply pending migrations
         success_count = 0
         fail_count = 0
-
         for migration in migrations:
             if migration.version not in applied:
                 if apply_migration(conn, migration):
@@ -187,10 +171,7 @@ def migrate_database(db_path: Optional[Path] = None):
                     fail_count += 1
 
         logger.info(f"Database migration complete: {success_count} applied, {fail_count} failed")
-        return (success_count, fail_count)
-
-    finally:
-        conn.close()
+        return success_count, fail_count
 
 
 def create_migration(description: str, sql: str, output_dir: Optional[Path] = None) -> Path:
@@ -432,16 +413,6 @@ def run_migration(db_path: Optional[Path] = None, ref_dir: Optional[str] = None)
     Returns:
         Tuple of (images_processed, images_imported)
     """
-    # Initialize database if needed
-    if db_path is None:
-        db_path = get_db_path()
-
     # Migrate data
     migrator = DatabaseMigrationHelper(db_path)
     return migrator.migrate_from_directory(ref_dir)
-
-
-if __name__ == '__main__':
-    # Run migration when script is executed directly
-    processed, imported = run_migration()
-    print(f"Migration complete. Processed {processed} images, imported {imported} images.")

@@ -1,0 +1,183 @@
+import os
+import sqlite3
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+
+import pytest
+
+from repository.connection import get_db_connection
+
+
+def test_auto_commit():
+    """Test that transactions are automatically committed when no exceptions occur."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # First connection: create a table and insert data
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO test_table (name) VALUES (?)", ("test_value",))
+            # No explicit commit needed
+
+        # Second connection: verify data persisted
+        with get_db_connection(db_path) as conn:
+            result = conn.execute("SELECT name FROM test_table WHERE id = 1").fetchone()
+            assert result is not None
+            assert result["name"] == "test_value"
+
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)
+
+
+def test_transaction_rollback_on_error():
+    """Test that transactions are rolled back when an exception occurs."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # First connection: create a table
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+            # No explicit commit needed
+
+        # Second connection: attempt operation that will fail
+        try:
+            with get_db_connection(db_path) as conn:
+                # This should succeed
+                conn.execute("INSERT INTO test_table (name) VALUES (?)", ("valid_value",))
+
+                # This should fail due to NOT NULL constraint
+                conn.execute("INSERT INTO test_table (name) VALUES (?)", (None,))
+
+                # We should never reach this point
+                pytest.fail("Expected sqlite3.IntegrityError was not raised")
+        except sqlite3.IntegrityError:
+            # Expected exception, continue with test
+            pass
+
+        # Third connection: verify the first insert was rolled back
+        with get_db_connection(db_path) as conn:
+            count = conn.execute("SELECT COUNT(*) FROM test_table").fetchone()[0]
+            assert count == 0, "Transaction was not rolled back correctly"
+
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)
+
+
+def test_explicit_commit_still_works():
+    """Test that explicit commits still work as expected."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # Create table and insert first record with explicit commit
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO test_table (name) VALUES (?)", ("record1",))
+            conn.commit()  # Explicit commit
+
+            # Add another record that should be auto-committed
+            conn.execute("INSERT INTO test_table (name) VALUES (?)", ("record2",))
+
+        # Verify both records persisted
+        with get_db_connection(db_path) as conn:
+            count = conn.execute("SELECT COUNT(*) FROM test_table").fetchone()[0]
+            assert count == 2, "Both records should be saved (one from explicit commit, one from auto-commit)"
+
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)
+
+
+def test_exception_propagation():
+    """Test that exceptions raised inside the context manager are properly propagated to the caller."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # Create a test table
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)")
+
+        # Test that a SQL error is propagated
+        with pytest.raises(sqlite3.OperationalError) as excinfo:
+            with get_db_connection(db_path) as conn:
+                # Execute a query with a non-existent column
+                conn.execute("SELECT * FROM test_table WHERE INVALID_SYNTAX")
+
+        # Verify the error message contains information about the error
+        assert "no such column: invalid_syntax" in str(excinfo.value).lower(), "Exception message should indicate the column error"
+
+        # Test that a custom Python exception is also propagated
+        class CustomTestException(Exception):
+            """Custom exception for testing purposes."""
+            pass
+
+        with pytest.raises(CustomTestException) as excinfo:
+            with get_db_connection(db_path) as conn:
+                # This query will succeed
+                conn.execute("INSERT INTO test_table (name) VALUES (?)", ("test_value",))
+                # But then we raise a custom exception
+                raise CustomTestException("Test exception raised inside context manager")
+
+        # Verify the custom exception message
+        assert "test exception raised" in str(excinfo.value).lower()
+
+        # Verify that the transaction was rolled back due to the exception
+        with get_db_connection(db_path) as conn:
+            count = conn.execute("SELECT COUNT(*) FROM test_table").fetchone()[0]
+            assert count == 0, "Transaction should have been rolled back when exception was raised"
+
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)
+
+
+def test_commit_on_early_return():
+    """Test that changes are committed even when a function inside the context manager returns early."""
+    # Create temporary database file
+    temp_db = NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+
+    try:
+        db_path = Path(temp_db.name)
+
+        # First connection: create a table
+        with get_db_connection(db_path) as conn:
+            conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)")
+
+        # Define a function that performs an insert and then returns early
+        def insert_and_return_early(db_file):
+            with get_db_connection(db_file) as conn:
+                conn.execute("INSERT INTO test_table (name) VALUES (?)", ("early_return_value",))
+                # Return immediately without explicit commit
+                return "Function returned early"
+
+        # Call the function that returns early inside the context manager
+        result = insert_and_return_early(db_path)
+        assert result == "Function returned early", "Function should have returned early"
+
+        # Verify that the data was still committed despite the early return
+        with get_db_connection(db_path) as conn:
+            result = conn.execute("SELECT name FROM test_table WHERE id = 1").fetchone()
+            assert result is not None, "Data should be committed even with early return"
+            assert result["name"] == "early_return_value", "Committed data should match inserted value"
+
+    finally:
+        # Clean up temporary file
+        os.unlink(temp_db.name)

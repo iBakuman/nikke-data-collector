@@ -5,10 +5,10 @@ import numpy as np
 from PIL import Image
 from diskcache import Cache
 
-from repository import CharacterDAO
+from domain.character import Character
+from repository.character_dao import CharacterDAO
 from .image_processor import ImageProcessor
 from .logging_config import get_logger
-from .models import Character
 
 logger = get_logger(__name__)
 
@@ -80,7 +80,7 @@ class CharacterMatcher:
                 continue
 
             # Test each image
-            for image_id, image_data, _ in char_images:
+            for image_id, image_data in char_images:
                 try:
                     # Convert blob to OpenCV image and preprocess
                     ref_image = ImageProcessor.blob_to_cv_image(image_data)
@@ -200,53 +200,3 @@ class CharacterMatcher:
         """Clear the entire cache"""
         self.cache.clear()
         logger.info("Character detector cache cleared")
-
-    def populate_from_image_directory(self, directory_path: str, pattern=r"^(\d{3})_([^_]+)_[a-z]\.(?:png|jpg|jpeg)$"):
-        """
-        Utility method to populate the database from a directory of images.
-        This method is provided for migration from the old file-based system.
-
-        Args:
-            directory_path: Path to directory containing character images
-            pattern: Regex pattern to extract character ID and name from filenames
-                    Default: "001_character_name_a.png" -> ID: "001", name: "character_name"
-
-        Returns:
-            Number of images successfully imported
-        """
-        import os
-        import re
-
-        logger.info(f"Populating database from directory: {directory_path}")
-
-        count = 0
-        for filename in os.listdir(directory_path):
-            if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                continue
-
-            # Extract ID and name using regex
-            match = re.match(pattern, filename)
-            if not match:
-                # Try alternative pattern without letter suffix
-                match = re.match(r"^(\d{3})_([^_]+)\.(?:png|jpg|jpeg)$", filename)
-                if not match:
-                    logger.warning(f"Skipping file with unrecognized format: {filename}")
-                    continue
-
-            char_id = match.group(1)
-            char_name = match.group(2)
-
-            # Check if character exists, if not create it
-            char = self.character_dao.get_character(char_id)
-            if not char:
-                self.character_dao.add_character(char_id,chinese_name=char_name)
-
-            # Add the image
-            image_path = os.path.join(directory_path, filename)
-            success = self.character_dao.add_character_image(char_id, image_path)
-
-            if success:
-                count += 1
-
-        logger.info(f"Successfully imported {count} images into the database")
-        return count

@@ -9,13 +9,14 @@ import win32process
 
 from .logging_config import get_logger
 from .ui_def import STANDARD_WINDOW_HEIGHT, STANDARD_WINDOW_WIDTH
-from .window_info import WindowInfo
+from .window_info import WindowInfo, Region
 
 logger = get_logger(__name__)
 
 
 class WindowNotFoundException(Exception):
     """Exception raised when a window for a specific process is not found."""
+
     def __init__(self, process_name):
         self.process_name = process_name
         message = f"Window not found for process: {process_name}"
@@ -41,25 +42,50 @@ class WindowManager:
             self.standard_width = STANDARD_WINDOW_WIDTH
             self.standard_height = STANDARD_WINDOW_HEIGHT
         self.exact_match = exact_match
+        self._update_window_info()
+
+    def _update_window_info(self):
         hwnd = get_window_handle(self.process_name, self.exact_match)
         if not hwnd:
             raise WindowNotFoundException(self.process_name)
-
         rect = get_window_rect(hwnd)
         if not rect:
             raise Exception("Failed to get window rect")
-        # Create and return WindowInfo object without screenshot
         self._window_info = WindowInfo(hwnd, rect, self.standard_width, self.standard_height)
-        logger.info(f"Got window info: {self._window_info}")
 
     def get_window_info(self) -> WindowInfo:
+        self._update_window_info()
         return self._window_info
 
-    def get_hwnd(self) -> int:
+    @property
+    def hwnd(self) -> int:
+        self._update_window_info()
         return self._window_info.hwnd
 
-    def get_rect(self) -> Tuple[int, int, int, int]:
+    @property
+    def rect(self) -> Region:
+        self._update_window_info()
         return self._window_info.rect
+
+    @property
+    def start_x(self):
+        self._update_window_info()
+        return self._window_info.left
+
+    @property
+    def start_y(self):
+        self._update_window_info()
+        return self._window_info.top
+
+    @property
+    def height(self):
+        self._update_window_info()
+        return self._window_info.height
+
+    @property
+    def width(self):
+        self._update_window_info()
+        return self._window_info.width
 
     def resize_to_standard(self, width: int = 1500, position: str = "top-left", margin: int = 10) -> bool:
         """
@@ -75,23 +101,17 @@ class WindowManager:
             bool: True if successful, False otherwise
         """
         try:
-            # Get window handle and check if window exists
-            hwnd = get_window_handle(self.process_name, self.exact_match)
-            if not hwnd:
-                logger.error(f"Window not found for process: {self.process_name}")
-                return False
-
             # Find which monitor the window is currently on
-            monitor_info = self._get_window_monitor_info(hwnd)
+            monitor_info = self._get_window_monitor_info(self.hwnd)
             if not monitor_info:
                 return False
 
             # Restore window if maximized
-            self._restore_if_maximized(hwnd)
+            self._restore_if_maximized(self.hwnd)
 
             # Get current window dimensions
-            current_rect = win32gui.GetWindowRect(hwnd)
-            client_rect = win32gui.GetClientRect(hwnd)
+            current_rect = win32gui.GetWindowRect(self.hwnd)
+            client_rect = win32gui.GetClientRect(self.hwnd)
             client_width, client_height = client_rect[2], client_rect[3]
 
             # Calculate frame dimensions
@@ -134,10 +154,10 @@ class WindowManager:
                 new_top = monitor_rect[1] + margin
 
             # Resize window
-            win32gui.MoveWindow(hwnd, new_left, new_top, new_width, new_height, True)
+            win32gui.MoveWindow(self.hwnd, new_left, new_top, new_width, new_height, True)
 
             # Update window info with new rect
-            self._window_info = WindowInfo(hwnd, get_window_rect(hwnd), self.standard_width, self.standard_height)
+            self._window_info = WindowInfo(self.hwnd, get_window_rect(self.hwnd), self.standard_width, self.standard_height)
 
             return True
 
@@ -160,7 +180,8 @@ class WindowManager:
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             time.sleep(0.6)  # Wait for restore
 
-    def _calculate_target_size_by_width(self, target_width: int, monitor_width: int, monitor_height: int) -> Dict[str, int]:
+    def _calculate_target_size_by_width(self, target_width: int, monitor_width: int, monitor_height: int) -> Dict[
+        str, int]:
         """
         Calculate target client size based on desired width, maintaining aspect ratio
 
@@ -272,7 +293,7 @@ def get_window_handle(process_name: str, exact_match: bool = True) -> Optional[i
     return hwnds[0] if hwnds else None
 
 
-def get_window_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
+def get_window_rect(hwnd: int) -> Optional[Region]:
     """
     Get the window client area rectangle coordinates.
 
@@ -290,10 +311,12 @@ def get_window_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
         # Convert client coordinates to screen coordinates
         point_left_top = win32gui.ClientToScreen(hwnd, (client_left, client_top))
         point_right_bottom = win32gui.ClientToScreen(hwnd, (client_right, client_bottom))
+        return Region(left=point_left_top[0], top=point_left_top[1],
+                      right=point_right_bottom[0], bottom=point_right_bottom[1],
+                      width=point_right_bottom[0] - point_left_top[0],
+                      height=point_right_bottom[1] - point_left_top[1]
+                      )
 
-        # Return screen coordinates of client area
-        return (point_left_top[0], point_left_top[1],
-                point_right_bottom[0], point_right_bottom[1])
 
     except Exception as e:
         logger.error(f"Error getting window client rectangle: {e}")

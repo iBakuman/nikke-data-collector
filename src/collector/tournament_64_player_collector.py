@@ -11,9 +11,9 @@ from typing import List, Optional
 
 from dataclass_wizard import JSONWizard, JSONPyWizard
 
+from mixin.json import JSONSerializableMixin
 from .lineup_processor import LineupProcessor
 from .logging_config import get_logger
-from .mixin import JSONSerializableMixin
 from .models import User
 from .mouse_control import MouseController
 from .ui_def import PROMOTION_TOURNAMENT

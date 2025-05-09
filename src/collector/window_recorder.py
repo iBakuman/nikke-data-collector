@@ -60,7 +60,7 @@ class WindowRecorder:
 
         try:
             # Get window coordinates from WindowManager
-            rect = self.window_manager.get_rect()
+            rect = self.window_manager.rect
             if not rect:
                 logger.error("Failed to get window coordinates")
                 return False

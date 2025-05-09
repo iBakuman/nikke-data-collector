@@ -1,0 +1,313 @@
+import os
+
+import numpy as np
+from PIL.ImageQt import ImageQt, fromqimage
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox, QHBoxLayout,
+                               QLabel, QLineEdit, QMessageBox, QPushButton,
+                               QSizePolicy, QVBoxLayout, QWidget)
+
+from collector.logging_config import get_logger
+from collector.ui_def import (STANDARD_CHARACTER_HEIGHT,
+                              STANDARD_CHARACTER_WIDTH)
+from components.image_input import ImageInputWidget
+from components.path_selector import PathSelector
+from extractor.app_config import AppConfigManager
+from extractor.util import (CharacterExtractionParams,
+                            calculate_character_positions,
+                            generate_character_filename)
+
+logger = get_logger(__name__)
+
+
+class MainWindow(QWidget):
+    """Character extraction application with GUI for selecting characters and naming them"""
+
+    def __init__(self, config_manager: AppConfigManager, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Character Extractor")
+
+        # Data members
+        self.current_position_index = 0
+        self.selected_positions = []
+        self.extraction_params = CharacterExtractionParams(
+            boundary_width=158,
+            character_width=222,
+            character_spacing=55,
+            height_width_ratio=STANDARD_CHARACTER_HEIGHT / STANDARD_CHARACTER_WIDTH
+        )
+        self.extracted_images = {}  # To store temporary images
+        self.config_manager = config_manager
+
+        # Setup UI
+        self._init_ui()
+
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+
+    def _init_ui(self):
+        """Initialize the UI components"""
+        main_layout = QVBoxLayout(self)
+
+        # Output directory selector
+        output_group = QGroupBox("Output Directory")
+        output_layout = QVBoxLayout(output_group)
+        self.output_path_selector = PathSelector(default_path=self.config_manager.get("output_dir"))
+        self.output_path_selector.pathChanged.connect(self._on_output_path_changed)
+        output_layout.addWidget(self.output_path_selector)
+        main_layout.addWidget(output_group)
+
+        # Input image selector with clipboard support
+        input_group = QGroupBox("Input Image")
+        input_layout = QVBoxLayout(input_group)
+        self.image_input = ImageInputWidget()
+        input_layout.addWidget(self.image_input)
+        main_layout.addWidget(input_group)
+
+        # Character position selection
+        positions_group = QGroupBox("Select Character Positions")
+        positions_layout = QVBoxLayout(positions_group)
+
+        # Grid for checkboxes (4×3 grid)
+        checkbox_grid = QGridLayout()
+        self.position_checkboxes = []
+
+        for i in range(12):
+            checkbox = QCheckBox(f"Position {i + 1}")
+            row, col = divmod(i, 3)
+            checkbox_grid.addWidget(checkbox, row, col)
+            self.position_checkboxes.append(checkbox)
+
+        positions_layout.addLayout(checkbox_grid)
+
+        # Select All button
+        select_all_layout = QHBoxLayout()
+        select_all_btn = QPushButton("Select All")
+        select_all_btn.clicked.connect(self._select_all_positions)
+        select_all_layout.addWidget(select_all_btn)
+
+        # Clear All button
+        clear_all_btn = QPushButton("Clear All")
+        clear_all_btn.clicked.connect(self._clear_all_positions)
+        select_all_layout.addWidget(clear_all_btn)
+
+        positions_layout.addLayout(select_all_layout)
+        main_layout.addWidget(positions_group)
+
+        # Character preview and naming
+        preview_group = QGroupBox("Character Preview")
+        preview_layout = QVBoxLayout(preview_group)
+
+        # Image display
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        preview_layout.addWidget(self.image_label)
+
+        # Character name input
+        name_layout = QHBoxLayout()
+        name_layout.addWidget(QLabel("Character Name:"))
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Enter name and press Enter")
+        self.name_input.returnPressed.connect(self._save_current_and_advance)
+        self.name_input.setEnabled(False)  # Disabled until extraction starts
+        name_layout.addWidget(self.name_input)
+
+        preview_layout.addLayout(name_layout)
+
+        # Status label
+        self.status_label = QLabel("Ready")
+        preview_layout.addWidget(self.status_label)
+
+        main_layout.addWidget(preview_group)
+
+        # Run button
+        self.run_button = QPushButton("Run Extraction")
+        self.run_button.clicked.connect(self._start_extraction)
+        main_layout.addWidget(self.run_button)
+
+    def _on_output_path_changed(self, path):
+        self.config_manager.set("output_dir", path)
+        self.config_manager.save_config()
+
+    def _select_all_positions(self):
+        """Select all character positions"""
+        for checkbox in self.position_checkboxes:
+            checkbox.setChecked(True)
+
+    def _clear_all_positions(self):
+        """Clear all character positions"""
+        for checkbox in self.position_checkboxes:
+            checkbox.setChecked(False)
+
+    def _start_extraction(self):
+        """Start the character extraction process"""
+        # Get selected positions
+        self.selected_positions = []
+        for i, checkbox in enumerate(self.position_checkboxes):
+            if checkbox.isChecked():
+                self.selected_positions.append(i + 1)
+
+        if not self.selected_positions:
+            QMessageBox.warning(self, "Warning", "Please select at least one character position.")
+            return
+
+        # Get output path
+        output_path = self.output_path_selector.get_path()
+        if not output_path or not os.path.isdir(output_path):
+            QMessageBox.warning(self, "Warning", "Please select a valid output directory.")
+            return
+
+        # Get input image
+        image = fromqimage(self.image_input.image)
+        if image is None:
+            QMessageBox.warning(self, "Warning", "Please select or paste an image first.")
+            return
+
+        # Extract all selected character images at once but don't save them yet
+        try:
+            # Calculate character positions
+            positions = calculate_character_positions(
+                self.extraction_params.boundary_width,
+                self.extraction_params.character_width,
+                self.extraction_params.character_spacing,
+                12
+            )
+
+            # Calculate character height based on ratio
+            character_height = int(self.extraction_params.character_width *
+                                   self.extraction_params.height_width_ratio)
+
+            # Find bottom boundary by scanning for yellow line (#f7fb24)
+            # Convert target color to RGB
+            target_color = (247, 251, 38)  # #f7fb24
+            tolerance = 20  # Color tolerance range
+            min_consecutive_pixels = 70  # Minimum consecutive matching pixels required
+
+            # Convert image to numpy array for faster processing
+            img_array = np.array(image)
+            bottom_boundary = None
+
+            # Start scanning from bottom up
+            for y in range(image.height -1, image.height//2, -1):
+                consecutive_count = 0
+                for x in range(image.width//9):
+                    pixel_color = img_array[y, x, :3]  # Get RGB values
+
+                    # Check if pixel color is within tolerance range of target color
+                    if (abs(int(pixel_color[0]) - int(target_color[0])) <= tolerance and
+                            abs(int(pixel_color[1]) - int(target_color[1])) <= tolerance and
+                            abs(int(pixel_color[2]) - int(target_color[2])) <= tolerance):
+                        consecutive_count += 1
+                        if consecutive_count >= min_consecutive_pixels:
+                            bottom_boundary = y
+                            break
+                    else:
+                        consecutive_count = 0
+
+                if bottom_boundary is not None:
+                    break
+
+            # Fallback to image height if no boundary detected
+            if bottom_boundary is None:
+                raise ValueError("No yellow boundary line detected")
+            else:
+                logger.info(f"Detected bottom boundary at y={bottom_boundary}")
+
+            bottom_boundary -= 94
+
+            # Calculate top boundary position
+            top_boundary = bottom_boundary - character_height
+
+            # Store extracted images
+            self.extracted_images = {}
+            for position in self.selected_positions:
+                start_x, end_x = positions[position - 1]
+                character_image = image.crop((start_x, top_boundary, end_x, bottom_boundary))
+                self.extracted_images[position] = character_image
+
+            # Start the naming process with the first image
+            self.current_position_index = 0
+            self._show_current_character()
+
+            # Enable the name input and disable the run button
+            self.name_input.setEnabled(True)
+            self.name_input.setFocus()
+            self.run_button.setEnabled(False)
+
+            # Disable UI elements during extraction
+            self._set_ui_elements_enabled(False)
+
+        except Exception as e:
+            logger.error(f"Error extracting characters: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to process image: {str(e)}")
+
+    def _set_ui_elements_enabled(self, enabled):
+        """Enable or disable UI elements during extraction"""
+        self.output_path_selector.setEnabled(enabled)
+        self.image_input.setEnabled(enabled)
+
+        for checkbox in self.position_checkboxes:
+            checkbox.setEnabled(enabled)
+
+    def _show_current_character(self):
+        """Display the current character image in the preview area"""
+        if self.current_position_index >= len(self.selected_positions):
+            # We're done
+            self.status_label.setText("All characters processed!")
+            self.image_label.clear()
+            self.name_input.clear()
+            self.name_input.setEnabled(False)
+            self.run_button.setEnabled(True)
+            self._set_ui_elements_enabled(True)
+            return
+
+        # Get the current position
+        current_position = self.selected_positions[self.current_position_index]
+
+        # Get the image
+        character_image = self.extracted_images[current_position]
+
+        # Display the image
+        qimage = ImageQt(character_image)
+        pixmap = QPixmap.fromImage(qimage)
+        self.image_label.setPixmap(pixmap)
+
+        # Update status
+        progress = f"{self.current_position_index + 1}/{len(self.selected_positions)}"
+        self.status_label.setText(f"Naming character at position {current_position} ({progress})")
+        self.name_input.clear()
+
+    def _save_current_and_advance(self):
+        """Save the current character with the given name and advance to the next one"""
+        if self.current_position_index >= len(self.selected_positions):
+            return
+
+        # Get the character name
+        character_name = self.name_input.text().strip()
+        if not character_name:
+            QMessageBox.warning(self, "Warning", "Please enter a character name.")
+            return
+
+        # Get the current position
+        current_position = self.selected_positions[self.current_position_index]
+
+        # Save the image
+        try:
+            output_path = self.output_path_selector.get_path()
+            character_image = self.extracted_images[current_position]
+
+            # Generate filename using the existing function
+            file_path = generate_character_filename(output_path, character_name)
+
+            # Save the image
+            character_image.save(file_path)
+            logger.info(f"Saved character at position {current_position} as '{character_name}' to {file_path}")
+
+            # Move to the next character
+            self.current_position_index += 1
+            self._show_current_character()
+
+        except Exception as e:
+            logger.error(f"Error saving character: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save image: {str(e)}")
