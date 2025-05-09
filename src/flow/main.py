@@ -57,11 +57,26 @@ class Magnifier(QWidget):
     def updateMagnifier(self):
         # Get current global mouse cursor position
         cursor_pos = QCursor.pos()
+
         # Find which screen the cursor is on
         screen = QGuiApplication.screenAt(cursor_pos)
         if screen is None:
+            # Fall back to primary screen if cursor position doesn't map to any screen
             screen = QGuiApplication.primaryScreen()
+
+            # If we still don't have a valid screen, try to use any available screen
+            if screen is None:
+                screens = QGuiApplication.screens()
+                if screens:
+                    screen = screens[0]
+                else:
+                    # No screens available, can't proceed
+                    return
+
         screen_geom = screen.geometry()
+
+        # Get virtual desktop information
+        virtual_desktop = QGuiApplication.primaryScreen().virtualGeometry()
 
         # Safe window positioning to avoid covering cursor or going off-screen
         win_w = self.width()
@@ -71,16 +86,16 @@ class Magnifier(QWidget):
         pos_x = cursor_pos.x() + margin
         pos_y = cursor_pos.y() + margin
         # Adjust to left of cursor if hitting right edge
-        if pos_x + win_w > screen_geom.x() + screen_geom.width():
+        if pos_x + win_w > virtual_desktop.x() + virtual_desktop.width():
             pos_x = cursor_pos.x() - margin - win_w
         # Adjust above cursor if hitting bottom edge
-        if pos_y + win_h > screen_geom.y() + screen_geom.height():
+        if pos_y + win_h > virtual_desktop.y() + virtual_desktop.height():
             pos_y = cursor_pos.y() - margin - win_h
-        # Clamp position within screen bounds
-        if pos_x < screen_geom.x():
-            pos_x = screen_geom.x()
-        if pos_y < screen_geom.y():
-            pos_y = screen_geom.y()
+        # Clamp position within virtual desktop bounds
+        if pos_x < virtual_desktop.x():
+            pos_x = virtual_desktop.x()
+        if pos_y < virtual_desktop.y():
+            pos_y = virtual_desktop.y()
         # Move the window to the new position
         self.move(pos_x, pos_y)
 
@@ -90,7 +105,10 @@ class Magnifier(QWidget):
         # Calculate top-left of capture region
         reg_x = cursor_pos.x() - region_w // 2
         reg_y = cursor_pos.y() - region_h // 2
+
         # Clamp capture region within screen bounds
+        # Note: We need to handle coordinates relative to the correct screen
+        # where the cursor currently is
         if reg_x < screen_geom.x():
             reg_x = screen_geom.x()
         if reg_x + region_w > screen_geom.x() + screen_geom.width():
@@ -100,15 +118,25 @@ class Magnifier(QWidget):
         if reg_y + region_h > screen_geom.y() + screen_geom.height():
             reg_y = screen_geom.y() + screen_geom.height() - region_h
 
+        # Calculate relative coordinates for screen capture
+        # For Qt's grabWindow, we need coordinates relative to the screen
+        relative_x = reg_x - screen_geom.x()
+        relative_y = reg_y - screen_geom.y()
+
         # Grab the specified screen region as an image
-        screenshot = screen.grabWindow(0, reg_x, reg_y, region_w, region_h).toImage()
-        # Get the color of the pixel under the cursor
+        # Use the screen's grabWindow with the proper coordinates for the current screen
+        screenshot = screen.grabWindow(0, relative_x, relative_y, region_w, region_h).toImage()
+
+        # Get the color of the pixel under the cursor, relative to our captured region
         local_x = cursor_pos.x() - reg_x
         local_y = cursor_pos.y() - reg_y
-        pixel_color = QColor(screenshot.pixel(int(local_x), int(local_y)))
-        # Update color patch and RGB text
-        self.color_patch.setStyleSheet(f"background-color: {pixel_color.name()}; border: 1px solid #000;")
-        self.color_text.setText(f"R:{pixel_color.red()} G:{pixel_color.green()} B:{pixel_color.blue()}")
+
+        # Ensure the local coordinates are within the captured region bounds
+        if 0 <= local_x < region_w and 0 <= local_y < region_h:
+            pixel_color = QColor(screenshot.pixel(int(local_x), int(local_y)))
+            # Update color patch and RGB text
+            self.color_patch.setStyleSheet(f"background-color: {pixel_color.name()}; border: 1px solid #000;")
+            self.color_text.setText(f"R:{pixel_color.red()} G:{pixel_color.green()} B:{pixel_color.blue()}")
 
         # Scale the screenshot by the magnification factor
         if self.magnification != 1:
