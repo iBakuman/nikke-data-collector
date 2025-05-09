@@ -4,7 +4,7 @@ Picker extension for page configuration.
 This module extends the original picker UI to support designating elements
 as page identifiers or interactive elements, and to define transitions between pages.
 """
-
+import traceback
 from typing import Any, Optional
 
 from PySide6.QtCore import Qt
@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QHBoxLayout, QInputDialog,
 from collector.logging_config import get_logger
 from collector.window_capturer import WindowCapturer
 from picker.designer.main import Ui_MainWindow
-from picker.overlay.overlay_manager import OverlayManager
 from picker.overlay.overlay_widget import OverlayWidget
+from picker.overlay.selector_manager import SelectorManager
 from picker.page_config import PageConfigManager
 from processor.elements import ImageElement, PixelColorElement
 
@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
         self.resize(1200, 800)
         # Set up overlay manager
         self.overlay_widget = OverlayWidget(window_capturer.window_manager)
-        self.overlay_manager = OverlayManager(self.overlay_widget, self.window_capturer)
+        self.overlay_manager = SelectorManager(self.overlay_widget, self.window_capturer)
         # Connect overlay signals
         self.overlay_manager.selection_completed.connect(self._on_selection_completed)
         self.overlay_manager.selection_cancelled.connect(self._on_selection_cancelled)
@@ -354,6 +354,7 @@ class MainWindow(QMainWindow):
         try:
             self.overlay_manager.start_selection(strategy_info.type_id)
         except Exception as e:
+            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to start capture: {e}")
             self.current_element_name = None
             self.current_page_id = None

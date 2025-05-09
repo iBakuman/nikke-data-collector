@@ -19,7 +19,7 @@ from picker.overlay.visual_elements import VisualElement
 logger = get_logger(__name__)
 
 
-class OverlayManager(QObject):
+class SelectorManager(QObject):
     """Manager for coordinating overlay widget and capture strategies."""
     
     # Signals
@@ -37,7 +37,7 @@ class OverlayManager(QObject):
         super().__init__()
         self.overlay = overlay
         self.window_capturer = window_capturer
-        self.current_strategy: Optional[ElementSelector] = None
+        self.current_selector: Optional[ElementSelector] = None
         self.current_strategy_type_id: Optional[str] = None
         self.control_panel: Optional[QWidget] = None
         
@@ -84,9 +84,9 @@ class OverlayManager(QObject):
             raise ValueError(f"Unknown capture strategy type: {strategy_type_id}")
         
         # If already capturing, cancel current capture
-        if self.current_strategy:
-            self.current_strategy.cancel_selection()
-            self.current_strategy = None
+        if self.current_selector:
+            self.current_selector.cancel_selection()
+            self.current_selector = None
             self.current_strategy_type_id = None
             
             if self.control_panel:
@@ -97,18 +97,18 @@ class OverlayManager(QObject):
         strategy_class = self.strategy_registry[strategy_type_id]
         
         # Create strategy instance
-        self.current_strategy = strategy_class(self.overlay, self.window_capturer)
+        self.current_selector = strategy_class(self.overlay, self.window_capturer)
         self.current_strategy_type_id = strategy_type_id
         
         # Connect to strategy signals
-        self.current_strategy.selection_completed.connect(self._handle_selection_completed)
-        self.current_strategy.selection_cancelled.connect(self._handle_selection_cancelled)
+        self.current_selector.selection_completed.connect(self._handle_selection_completed)
+        self.current_selector.selection_cancelled.connect(self._handle_selection_cancelled)
         
         # Emit capture started signal
         self.selection_started.emit(strategy_type_id)
         
         # Start capture and get control panel
-        self.control_panel = self.current_strategy.start_selection()
+        self.control_panel = self.current_selector.start_selection()
         
         # Show control panel
         if self.control_panel:
@@ -136,9 +136,9 @@ class OverlayManager(QObject):
     def _cleanup_current_capture(self) -> None:
         """Clean up resources from current capture."""
         # Disconnect signals
-        if self.current_strategy:
-            self.current_strategy.selection_completed.disconnect(self._handle_selection_completed)
-            self.current_strategy.selection_cancelled.disconnect(self._handle_selection_cancelled)
+        if self.current_selector:
+            self.current_selector.selection_completed.disconnect(self._handle_selection_completed)
+            self.current_selector.selection_cancelled.disconnect(self._handle_selection_cancelled)
             
         # Close control panel
         if self.control_panel:
@@ -146,13 +146,13 @@ class OverlayManager(QObject):
             self.control_panel = None
             
         # Clear strategy
-        self.current_strategy = None
+        self.current_selector = None
         self.current_strategy_type_id = None
     
     def cancel_current_selection(self) -> None:
         """Cancel the current capture process if active."""
-        if self.current_strategy:
-            self.current_strategy.cancel_selection()
+        if self.current_selector:
+            self.current_selector.cancel_selection()
     
     def load_elements(self, config_list: List[Dict[str, Any]]) -> List[VisualElement]:
         """Load visual elements from configuration.

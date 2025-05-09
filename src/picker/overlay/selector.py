@@ -276,9 +276,8 @@ class PixelColorSelector(ElementSelector):
     def __init__(self, overlay: OverlayWidget, window_capturer: WindowCapturer):
         """Initialize the pixel color selector."""
         super().__init__(overlay, window_capturer)
-        self.selected_points: PixelColorElementEntity = PixelColorElementEntity()
+        self.pixel_color_element: PixelColorElementEntity = PixelColorElementEntity()
         self.control_panel: Optional['PixelColorControlPanel'] = None
-        # Track visual elements for easier removal
         self.point_elements: List[PointElement] = []
 
     def _create_control_panel(self) -> QWidget:
@@ -289,9 +288,9 @@ class PixelColorSelector(ElementSelector):
     def start_selection(self) -> QWidget:
         """Start the pixel color selection process."""
         # Initialize the list of captured points
-        self.selected_points = []
+        self.pixel_color_element = PixelColorElementEntity()
         self.point_elements = []
-        self.result_data = self.selected_points
+        self.result_data = self.pixel_color_element
         self._connect_signals()
         return super().start_selection()
 
@@ -343,7 +342,7 @@ class PixelColorSelector(ElementSelector):
             )
 
             # Add to captured points
-            self.selected_points.add_pixel_color(pixel_color_entity)
+            self.pixel_color_element.add_pixel_color(pixel_color_entity)
 
             # Add visual feedback to overlay
             point_element = PointElement(x, y, QColor(r, g, b))
@@ -360,8 +359,8 @@ class PixelColorSelector(ElementSelector):
             logger.exception(f"Error capturing pixel color: {e}")
 
     def remove_point(self, index: int) -> None:
-        if 0 <= index < len(self.selected_points):
-            self.selected_points.pop(index)
+        if 0 <= index < len(self.pixel_color_element):
+            self.pixel_color_element.pop(index)
             if 0 <= index < len(self.point_elements):
                 self.point_elements.pop(index)
                 self.overlay.clear_visual_elements()
@@ -373,7 +372,7 @@ class PixelColorSelector(ElementSelector):
     def can_complete(self) -> bool:
         """Check if selection can be completed."""
         # Require at least one point to complete
-        return len(self.selected_points) > 0
+        return len(self.pixel_color_element) > 0
 
     @classmethod
     def create_visual_element(cls, config: Dict[str, Any]) -> VisualElement:
@@ -450,7 +449,7 @@ class PixelColorControlPanel(ControlPanel):
 
     def update_point_list(self) -> None:
         """Update the list of selected points displayed in the panel."""
-        points = self.strategy.selected_points
+        points = self.strategy.pixel_color_element.points
 
         if not points:
             self.points_list.setText("<i>No points selected yet</i>")
@@ -462,7 +461,6 @@ class PixelColorControlPanel(ControlPanel):
 
         for point in points:
             # Access point properties safely
-
             html += f'<li>({point.point_x}, {point.point_y}) - RGB({point.color_r}, {point.color_g}, {point.color_b})</li>'
 
         html += "</ol>"
@@ -472,8 +470,8 @@ class PixelColorControlPanel(ControlPanel):
 
     def _remove_last_point(self) -> None:
         """Remove the last selected point."""
-        if self.strategy.selected_points:
-            self.strategy.remove_point(len(self.strategy.selected_points) - 1)
+        if self.strategy.pixel_color_element:
+            self.strategy.remove_point(len(self.strategy.pixel_color_element) - 1)
 
 
 class ImageSelector(ElementSelector):
